@@ -67,6 +67,9 @@ class GameOrchestrator:
 
         # Trade history per round (for highlights)
         self.all_trades: list[Trade] = []
+
+        # Stored game_over data for reconnecting clients
+        self.game_over_data: dict | None = None
         self._broadcast_event_ids: set[str] = set()  # track which events were already broadcast
 
     async def initialize(self):
@@ -240,11 +243,12 @@ class GameOrchestrator:
         # Compute highlights
         highlights = self._compute_highlights()
 
-        await self._broadcast({
+        self.game_over_data = {
             "type": "game_over",
             "final_rankings": final_rankings,
             "highlights": highlights,
-        })
+        }
+        await self._broadcast(self.game_over_data)
         await self._broadcast({"type": "game_status", "status": "finished"})
         logger.info("Game ended")
 

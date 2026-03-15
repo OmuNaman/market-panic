@@ -5,9 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  *
  * Auto-detects ws:// vs wss:// from window.location.
  * Reconnects with exponential backoff on disconnect.
+ * Stops reconnecting on auth failure (close code 4003).
  */
 export function useWebSocket(path, { onMessage, queryParams = {} } = {}) {
   const [readyState, setReadyState] = useState(WebSocket.CLOSED)
+  const [authFailed, setAuthFailed] = useState(false)
   const wsRef = useRef(null)
   const reconnectTimer = useRef(null)
   const reconnectDelay = useRef(1000)
@@ -26,6 +28,7 @@ export function useWebSocket(path, { onMessage, queryParams = {} } = {}) {
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
+    if (authFailed) return
 
     const url = getUrl()
     const ws = new WebSocket(url)
@@ -45,8 +48,15 @@ export function useWebSocket(path, { onMessage, queryParams = {} } = {}) {
       }
     }
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       setReadyState(WebSocket.CLOSED)
+
+      // Don't reconnect on auth failure
+      if (event.code === 4003) {
+        setAuthFailed(true)
+        return
+      }
+
       // Auto-reconnect with exponential backoff
       reconnectTimer.current = setTimeout(() => {
         reconnectDelay.current = Math.min(reconnectDelay.current * 2, 10000)
@@ -57,7 +67,7 @@ export function useWebSocket(path, { onMessage, queryParams = {} } = {}) {
     ws.onerror = () => {
       ws.close()
     }
-  }, [getUrl])
+  }, [getUrl, authFailed])
 
   useEffect(() => {
     connect()
@@ -77,5 +87,6 @@ export function useWebSocket(path, { onMessage, queryParams = {} } = {}) {
     sendMessage,
     readyState,
     isConnected: readyState === WebSocket.OPEN,
+    authFailed,
   }
 }

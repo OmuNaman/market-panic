@@ -1,16 +1,29 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function RoundOverlay({ round }) {
   const [visible, setVisible] = useState(false)
   const [displayRound, setDisplayRound] = useState(0)
+  const prevRound = useRef(0)
+  const initialized = useRef(false)
 
   useEffect(() => {
     if (round > 0) {
-      setDisplayRound(round)
-      setVisible(true)
-      const timer = setTimeout(() => setVisible(false), 1500)
-      return () => clearTimeout(timer)
+      // Skip overlay on reconnect (jumping from 0 to a high round)
+      if (!initialized.current) {
+        initialized.current = true
+        prevRound.current = round
+        return
+      }
+      // Only show for sequential round changes (1 -> 2, not 0 -> 15)
+      if (round === prevRound.current + 1) {
+        setDisplayRound(round)
+        setVisible(true)
+        const timer = setTimeout(() => setVisible(false), 1500)
+        prevRound.current = round
+        return () => clearTimeout(timer)
+      }
+      prevRound.current = round
     }
   }, [round])
 

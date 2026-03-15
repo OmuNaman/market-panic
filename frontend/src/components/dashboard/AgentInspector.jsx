@@ -8,71 +8,73 @@ const TABS = ['Portfolio', 'Memories', 'Decisions', 'Config']
 export default function AgentInspector({ agent, onClose }) {
   const [activeTab, setActiveTab] = useState('Portfolio')
 
-  if (!agent) return null
-
   return (
-    <AnimatePresence>
-      <motion.div
-        className="inspector-overlay"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-      >
-        <motion.div
-          className="inspector-panel"
-          initial={{ x: 420 }}
-          animate={{ x: 0 }}
-          exit={{ x: 420 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="inspector-header">
-            <div className="inspector-name">{agent.name}</div>
-            <button className="inspector-close" onClick={onClose}>×</button>
-          </div>
+    <>
+      <AnimatePresence>
+        {agent && (
+          <motion.div
+            className="inspector-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+          >
+            <motion.div
+              className="inspector-panel"
+              initial={{ x: 420 }}
+              animate={{ x: 0 }}
+              exit={{ x: 420 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="inspector-header">
+                <div className="inspector-name">{agent.name}</div>
+                <button className="inspector-close" onClick={onClose}>×</button>
+              </div>
 
-          {/* Identity — shows the student's form text */}
-          <div className="inspector-identity">
-            <div className="identity-field">
-              <span className="identity-label">PERSONALITY</span>
-              <p className="identity-text">{agent.personality}</p>
-            </div>
-            <div className="identity-field">
-              <span className="identity-label">STRATEGY</span>
-              <p className="identity-text">{agent.strategy}</p>
-            </div>
-            <div className="identity-row">
-              <span className="identity-label">RISK: </span>
-              <span className="mono text-cyan">{agent.risk_level}/5</span>
-              <span className="identity-label" style={{ marginLeft: 16 }}>SECTORS: </span>
-              <span className="mono text-cyan">{(agent.favorite_sectors || []).join(', ') || 'Any'}</span>
-            </div>
-          </div>
+              {/* Identity — shows the student's form text */}
+              <div className="inspector-identity">
+                <div className="identity-field">
+                  <span className="identity-label">PERSONALITY</span>
+                  <p className="identity-text">{agent.personality}</p>
+                </div>
+                <div className="identity-field">
+                  <span className="identity-label">STRATEGY</span>
+                  <p className="identity-text">{agent.strategy}</p>
+                </div>
+                <div className="identity-row">
+                  <span className="identity-label">RISK: </span>
+                  <span className="mono text-cyan">{agent.risk_level}/5</span>
+                  <span className="identity-label" style={{ marginLeft: 16 }}>SECTORS: </span>
+                  <span className="mono text-cyan">{(agent.favorite_sectors || []).join(', ') || 'Any'}</span>
+                </div>
+              </div>
 
-          {/* Tabs */}
-          <div className="inspector-tabs">
-            {TABS.map(tab => (
-              <button
-                key={tab}
-                className={`inspector-tab ${activeTab === tab ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+              {/* Tabs */}
+              <div className="inspector-tabs">
+                {TABS.map(tab => (
+                  <button
+                    key={tab}
+                    className={`inspector-tab ${activeTab === tab ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
 
-          {/* Content */}
-          <div className="inspector-content">
-            {activeTab === 'Portfolio' && <PortfolioTab agent={agent} />}
-            {activeTab === 'Memories' && <MemoriesTab memories={agent.memories} />}
-            {activeTab === 'Decisions' && <DecisionsTab decisions={agent.decisions} />}
-            {activeTab === 'Config' && <ConfigTab agent={agent} />}
-          </div>
-        </motion.div>
-      </motion.div>
+              {/* Content */}
+              <div className="inspector-content">
+                {activeTab === 'Portfolio' && <PortfolioTab agent={agent} />}
+                {activeTab === 'Memories' && <MemoriesTab memories={agent.memories} />}
+                {activeTab === 'Decisions' && <DecisionsTab decisions={agent.decisions} />}
+                {activeTab === 'Config' && <ConfigTab agent={agent} />}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .inspector-overlay {
@@ -254,7 +256,7 @@ export default function AgentInspector({ agent, onClose }) {
           font-size: 0.85rem;
         }
       `}</style>
-    </AnimatePresence>
+    </>
   )
 }
 
@@ -299,7 +301,7 @@ function MemoriesTab({ memories }) {
           <div className="memory-meta">
             <span className="memory-round">R{mem.round}</span>
             <span className="memory-importance" style={{ color: importanceColor(mem.importance) }}>
-              ★{mem.importance}
+              {'\u2605'}{mem.importance}
             </span>
             <span className="text-muted">{mem.type}</span>
           </div>
@@ -340,8 +342,8 @@ function DecisionsTab({ decisions }) {
 }
 
 function ConfigTab({ agent }) {
-  const focusLabels = { episodic: '🎯 Episodic', semantic: '🧠 Semantic', procedural: '⚡ Procedural' }
-  const forgetLabels = { 1: '🐘 Elephant', 2: '📚 Studious', 3: '⚖️ Balanced', 4: '💨 Breezy', 5: '🐠 Goldfish' }
+  const focusLabels = { episodic: 'Episodic', semantic: 'Semantic', procedural: 'Procedural' }
+  const forgetLabels = { 1: 'Elephant', 2: 'Studious', 3: 'Balanced', 4: 'Breezy', 5: 'Goldfish' }
   const mdc = agent.market_data_config || {}
   const mf = agent.memory_filters || {}
 
@@ -366,8 +368,8 @@ function ConfigTab({ agent }) {
       <ConfigRow label="Leaderboard" value={mdc.agent_rankings ? 'ON' : 'OFF'} />
 
       <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', marginTop: 16, marginBottom: 8 }}>MEMORY ARCHITECT</div>
-      <ConfigRow label="Focus" value={focusLabels[agent.memory_focus] || 'episodic'} />
-      <ConfigRow label="Decay speed" value={forgetLabels[agent.forgetting_speed] || 3} />
+      <ConfigRow label="Focus" value={focusLabels[agent.memory_focus] || 'Episodic'} />
+      <ConfigRow label="Decay speed" value={forgetLabels[agent.forgetting_speed] || 'Balanced'} />
       <ConfigRow label="Compress after" value={`${agent.compression_trigger ?? 50} memories`} />
       <ConfigRow label="Price threshold" value={`${mf.price_threshold ?? 3}%`} />
       <ConfigRow label="Remember trades" value={mf.own_trades !== false ? 'ON' : 'OFF'} />

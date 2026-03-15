@@ -7,7 +7,7 @@ const initialState = {
   prices: {},
   priceChanges: {},
   priceHistory: {},
-  agents: {},       // name → agent info
+  agents: {},       // name -> agent info
   rankings: [],
   news: [],         // { headline, category, severity, round }
   trades: [],       // { agent, action, ticker, amount, price, reasoning, round }
@@ -15,6 +15,8 @@ const initialState = {
   inspectedAgent: null,  // full agent inspection data
   gameOver: null,   // { final_rankings, highlights }
   speed: 1,
+  error: null,      // last error message from server
+  scenarioLoaded: null, // last scenario confirmation
 }
 
 function reducer(state, action) {
@@ -25,6 +27,7 @@ function reducer(state, action) {
     case 'market_update':
       return {
         ...state,
+        gameStatus: action.status ?? state.gameStatus,
         round: action.round ?? state.round,
         totalRounds: action.total_rounds ?? state.totalRounds,
         prices: action.prices ?? state.prices,
@@ -50,13 +53,14 @@ function reducer(state, action) {
         },
       }
 
-    case 'agent_removed':
+    case 'agent_removed': {
       const { [action.name]: _, ...remainingAgents } = state.agents
       return {
         ...state,
         agents: remainingAgents,
         rankings: state.rankings.filter(r => r.name !== action.name),
       }
+    }
 
     case 'trade_executed':
       return {
@@ -123,6 +127,21 @@ function reducer(state, action) {
       return {
         ...state,
         inspectedAgent: null,
+      }
+
+    case 'error':
+      return {
+        ...state,
+        error: action.message,
+      }
+
+    case 'scenario_loaded':
+      return {
+        ...state,
+        scenarioLoaded: {
+          scenario: action.scenario,
+          event_count: action.event_count,
+        },
       }
 
     default:

@@ -4,7 +4,7 @@ export default function NewsTicker({ news }) {
   if (!news || news.length === 0) {
     return (
       <div className="news-ticker panel">
-        <div className="ticker-track">
+        <div className="ticker-track-static">
           <span className="ticker-item text-muted">Waiting for market events...</span>
         </div>
       </div>
@@ -17,21 +17,25 @@ export default function NewsTicker({ news }) {
     return 'var(--text-secondary)'
   }
 
+  const renderItems = (keyPrefix) =>
+    news.map((item, i) => (
+      <span
+        key={`${keyPrefix}-${i}`}
+        className="ticker-item"
+        style={{ color: severityColor(item.severity) }}
+      >
+        <span className="ticker-icon">{categoryIcon(item.category)}</span>
+        <span className="ticker-headline">{item.headline}</span>
+        {!item.is_true && <span className="rumor-tag">RUMOR</span>}
+        <span className="ticker-sep">{'\u2022'}</span>
+      </span>
+    ))
+
   return (
     <div className="news-ticker panel">
       <div className="ticker-track">
-        {news.map((item, i) => (
-          <span
-            key={i}
-            className="ticker-item"
-            style={{ color: severityColor(item.severity) }}
-          >
-            <span className="ticker-icon">{categoryIcon(item.category)}</span>
-            <span className="ticker-headline">{item.headline}</span>
-            {!item.is_true && <span className="rumor-tag">RUMOR</span>}
-            <span className="ticker-sep">•</span>
-          </span>
-        ))}
+        {renderItems('a')}
+        {renderItems('b')}
       </div>
 
       <style>{`
@@ -39,6 +43,9 @@ export default function NewsTicker({ news }) {
           overflow: hidden;
           white-space: nowrap;
           border-radius: 0;
+        }
+        .ticker-track-static {
+          padding: 10px 16px;
         }
         .ticker-track {
           display: flex;

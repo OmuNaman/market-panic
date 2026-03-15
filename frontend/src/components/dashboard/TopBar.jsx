@@ -1,3 +1,5 @@
+import { MuteButton } from './SoundEngine'
+
 export default function TopBar({ round, totalRounds, gameStatus, isConnected }) {
   const statusColor = {
     waiting: 'var(--text-muted)',
@@ -34,6 +36,7 @@ export default function TopBar({ round, totalRounds, gameStatus, isConnected }) 
         )}
       </div>
       <div className="topbar-right">
+        <MuteButton />
         <div className="status-badge" style={{ color: statusColor }}>
           <span
             className="status-dot"

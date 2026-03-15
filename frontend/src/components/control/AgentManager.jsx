@@ -13,10 +13,20 @@ export default function AgentManager({ agents, rankings, sendMessage }) {
     sendMessage({ type: 'inspect_agent', name })
   }
 
-  const agentList = (rankings || []).map(r => ({
-    ...r,
-    ...(agents?.[r.name] || {}),
-  }))
+  // Use rankings if available (during game), otherwise show from agents dict (pre-game)
+  let agentList
+  if (rankings && rankings.length > 0) {
+    agentList = rankings.map(r => ({
+      ...r,
+      ...(agents?.[r.name] || {}),
+    }))
+  } else {
+    agentList = Object.values(agents || {}).map(a => ({
+      ...a,
+      portfolio_value: 10000,
+      status: 'waiting',
+    }))
+  }
 
   return (
     <div className="agent-manager panel">

@@ -290,12 +290,15 @@ async def ws_dashboard(websocket: WebSocket):
                 "risk_level": agent.risk_level,
                 "favorite_sectors": agent.favorite_sectors,
             })
-        # Send current market state if game is running
-        if orchestrator.status.value in ("running", "paused"):
+        # Send current market state if game is running or finished
+        if orchestrator.status.value in ("running", "paused", "finished"):
             await websocket.send_json({
                 "type": "market_update",
                 **orchestrator.get_market_state(),
             })
+        # Send game_over data if game is finished (so refresh shows podium)
+        if orchestrator.status.value == "finished" and orchestrator.game_over_data:
+            await websocket.send_json(orchestrator.game_over_data)
         # Send recent trades so activity feed populates
         recent_trades = orchestrator.all_trades[-50:]
         for trade in recent_trades:
@@ -420,7 +423,7 @@ async def _handle_instructor_message(data: dict, ws: WebSocket):
             name = data.get("name", "")
             inspection = orchestrator.get_agent_inspection(name)
             if inspection:
-                await manager.broadcast({
+                await ws.send_json({
                     "type": "agent_inspection",
                     **inspection,
                 })

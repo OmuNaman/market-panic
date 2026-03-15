@@ -64,16 +64,36 @@ export default function ControlPage() {
     )
   }
 
-  return <ControlInner password={password} />
+  return <ControlInner password={password} onAuthFail={() => {
+    setAuthenticated(false)
+    setPassword('')
+  }} />
 }
 
-function ControlInner({ password }) {
+function ControlInner({ password, onAuthFail }) {
   const { state, handleMessage } = useMarketState()
 
-  const { sendMessage, isConnected } = useWebSocket('/ws/instructor', {
+  const { sendMessage, isConnected, authFailed } = useWebSocket('/ws/instructor', {
     onMessage: handleMessage,
     queryParams: { password },
   })
+
+  // If auth failed, clear stored password and go back to login
+  if (authFailed) {
+    sessionStorage.removeItem('control_password')
+    if (onAuthFail) onAuthFail()
+    return (
+      <div className="control-gate">
+        <div className="gate-card">
+          <h1 className="mono text-pink">ACCESS DENIED</h1>
+          <p className="text-secondary">Wrong password. Please try again.</p>
+          <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={onAuthFail}>
+            RETRY
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="control-page">
