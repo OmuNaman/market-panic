@@ -263,6 +263,7 @@ export default function AgentInspector({ agent, onClose }) {
 function PortfolioTab({ agent }) {
   const portfolio = agent.portfolio || {}
   const holdings = portfolio.holdings || {}
+  const prices = agent.prices || {}
 
   return (
     <div>
@@ -270,12 +271,16 @@ function PortfolioTab({ agent }) {
       <div className="portfolio-cash mono">Cash: {formatCash(portfolio.cash || 0)}</div>
 
       {Object.keys(holdings).length > 0 ? (
-        Object.entries(holdings).map(([ticker, shares]) => (
-          <div key={ticker} className="holding-row">
-            <span className="holding-ticker">{ticker}</span>
-            <span className="holding-shares">{shares} shares</span>
-          </div>
-        ))
+        Object.entries(holdings).map(([ticker, shares]) => {
+          const value = shares * (prices[ticker] || 0)
+          return (
+            <div key={ticker} className="holding-row">
+              <span className="holding-ticker">{ticker}</span>
+              <span className="holding-shares">{shares} shares</span>
+              <span className="holding-value mono">{formatCash(value)}</span>
+            </div>
+          )
+        })
       ) : (
         <div className="empty-state">No holdings — all cash</div>
       )}

@@ -52,7 +52,7 @@ class GameOrchestrator:
         # Agents
         self.agents: dict[str, AgentState] = {}
         self.agent_memories: dict[str, AgentMemory] = {}
-        self.chromadb_client = chromadb.Client()
+        self.chromadb_client = chromadb.PersistentClient(path="./chroma_db")
 
         # Chat log
         self.chat_log: list[str] = []
@@ -126,14 +126,14 @@ class GameOrchestrator:
         """Get an agent's full state."""
         return self.agents.get(name)
 
-    def get_agent_inspection(self, name: str) -> dict | None:
+    async def get_agent_inspection(self, name: str) -> dict | None:
         """Get full inspection data for the AgentInspector panel."""
         agent = self.agents.get(name)
         if not agent:
             return None
 
         memory = self.agent_memories.get(name)
-        memories = memory.get_all() if memory else []
+        memories = await memory.aget_all() if memory else []
 
         return {
             "name": agent.name,
@@ -146,6 +146,7 @@ class GameOrchestrator:
                 "holdings": agent.portfolio.holdings,
                 "total_value": calculate_portfolio_value(agent.portfolio, self.market.prices),
             },
+            "prices": self.market.prices,
             "memories": memories,
             "decisions": [
                 {
@@ -400,6 +401,12 @@ class GameOrchestrator:
                     # Handle chat messages
                     if trade.action == "CHAT" and trade.message:
                         self.chat_log.append(f"{agent.name}: {trade.message}")
+                        await self._broadcast({
+                            "type": "chat_message",
+                            "agent": agent.name,
+                            "text": trade.message,
+                            "round": round_num,
+                        })
 
                 agent.status = "idle"
 
@@ -423,14 +430,13 @@ class GameOrchestrator:
         # 5. Compute rankings
         rankings = get_rankings(agents_list, new_prices)
 
-        # 6. Broadcast market update
+        # 6. Broadcast market update (no price_history — sent on connect, frontend accumulates)
         await self._broadcast({
             "type": "market_update",
             "round": round_num,
             "total_rounds": self.config.total_rounds,
             "prices": new_prices,
             "price_changes": price_changes,
-            "price_history": self.market.get_history(),
             "rankings": rankings,
             "active_events": [
                 {

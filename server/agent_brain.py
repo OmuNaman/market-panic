@@ -16,6 +16,7 @@ The 6-step brain loop:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -70,7 +71,7 @@ async def run_agent_brain(
         # (Session 3: Write, Select, Compress, Isolate)
         # Uses agent.rag_doc_count (Token War Room setting)
         # ─────────────────────────────────────────────────
-        relevant_knowledge = retrieve_knowledge(
+        relevant_knowledge = await retrieve_knowledge(
             knowledge_base, prices, price_changes, active_events, agent
         )
 
@@ -80,7 +81,7 @@ async def run_agent_brain(
         # Uses agent.memory_recall_count, memory_importance_threshold,
         # forgetting_speed (Memory Architect settings)
         # ─────────────────────────────────────────────────
-        relevant_memories = recall_memories(
+        relevant_memories = await recall_memories(
             memory, prices, price_changes, active_events, agent, round_num
         )
 
@@ -120,7 +121,7 @@ async def run_agent_brain(
         # (Session 5: Compress & Isolate)
         # Uses agent.compression_trigger (Memory Architect setting)
         # ─────────────────────────────────────────────────
-        if memory.count() > agent.compression_trigger:
+        if await asyncio.to_thread(memory.count) > agent.compression_trigger:
             await memory.compress(round_num, gemini_model)
 
         # Track response time
@@ -153,7 +154,7 @@ async def run_agent_brain(
 # but also more tokens consumed per round.
 # ══════════════════════════════════════════════════════════════
 
-def retrieve_knowledge(
+async def retrieve_knowledge(
     knowledge_base: KnowledgeBase,
     prices: dict[str, float],
     price_changes: dict[str, float],
@@ -183,7 +184,7 @@ def retrieve_knowledge(
         query_parts.append("current market conditions, trading strategies, sector analysis")
 
     query = ", ".join(query_parts)
-    return knowledge_base.search(query, n_results=agent.rag_doc_count)
+    return await asyncio.to_thread(knowledge_base.search, query, agent.rag_doc_count)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -197,7 +198,7 @@ def retrieve_knowledge(
 # to old memories, making recent ones more prominent.
 # ══════════════════════════════════════════════════════════════
 
-def recall_memories(
+async def recall_memories(
     memory: AgentMemory,
     prices: dict[str, float],
     price_changes: dict[str, float],
@@ -227,7 +228,7 @@ def recall_memories(
         query_parts.append("previous rounds, past trades, market events")
 
     query = ", ".join(query_parts)
-    memories = memory.retrieve(
+    memories = await memory.aretrieve(
         query,
         n_results=agent.memory_recall_count,
         min_importance=agent.memory_importance_threshold,
@@ -606,7 +607,7 @@ async def store_round_memories(
         )
 
     for mem in memories_to_store:
-        memory.store(
+        await memory.astore(
             text=mem["text"],
             round_num=round_num,
             importance=mem["importance"],

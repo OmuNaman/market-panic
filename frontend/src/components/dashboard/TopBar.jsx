@@ -1,6 +1,6 @@
 import { MuteButton } from './SoundEngine'
 
-export default function TopBar({ round, totalRounds, gameStatus, isConnected }) {
+export default function TopBar({ round, totalRounds, gameStatus, isConnected, rankings }) {
   const statusColor = {
     waiting: 'var(--text-muted)',
     running: 'var(--accent-green)',
@@ -34,6 +34,18 @@ export default function TopBar({ round, totalRounds, gameStatus, isConnected }) 
             />
           </div>
         )}
+        {(() => {
+          const thinking = (rankings || []).filter(r => r.status === 'thinking').length
+          const total = (rankings || []).length
+          if (thinking > 0 && total > 0) {
+            return (
+              <span className="thinking-indicator mono">
+                {total - thinking}/{total} decided
+              </span>
+            )
+          }
+          return null
+        })()}
       </div>
       <div className="topbar-right">
         <MuteButton />
@@ -105,6 +117,11 @@ export default function TopBar({ round, totalRounds, gameStatus, isConnected }) 
           height: 100%;
           background: var(--accent-cyan);
           transition: width 0.5s var(--ease-snappy);
+        }
+        .thinking-indicator {
+          font-size: 0.6rem;
+          color: var(--accent-amber);
+          letter-spacing: 0.04em;
         }
         .topbar-right {
           display: flex;

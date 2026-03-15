@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useMarketState } from '../hooks/useMarketState'
 import { SoundProvider, useSounds } from '../components/dashboard/SoundEngine'
@@ -17,6 +17,9 @@ function DashboardInner() {
   const { isConnected } = useWebSocket('/ws/dashboard', { onMessage: handleMessage })
   const prevRound = useRef(0)
   const sounds = useSounds()
+
+  // Read the student's agent name from sessionStorage (set on /join form submit)
+  const myAgent = useMemo(() => sessionStorage.getItem('market_panic_agent'), [])
 
   // Sound effects on state changes
   useEffect(() => {
@@ -42,6 +45,13 @@ function DashboardInner() {
       .catch(() => {})
   }, [dispatch])
 
+  // Auto-refresh inspector when round changes (so data stays fresh)
+  useEffect(() => {
+    if (state.inspectedAgent?.name && state.round > 0) {
+      handleSelectAgent(state.inspectedAgent.name)
+    }
+  }, [state.round]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCloseInspector = useCallback(() => {
     dispatch({ type: 'clear_inspection' })
   }, [dispatch])
@@ -53,6 +63,7 @@ function DashboardInner() {
         totalRounds={state.totalRounds}
         gameStatus={state.gameStatus}
         isConnected={isConnected}
+        rankings={state.rankings}
       />
 
       <div className="dashboard-grid">
@@ -67,13 +78,14 @@ function DashboardInner() {
           <Leaderboard
             rankings={state.rankings}
             onSelectAgent={handleSelectAgent}
+            myAgent={myAgent}
           />
         </div>
         <div className="grid-ticker">
           <NewsTicker news={state.news} />
         </div>
         <div className="grid-activity">
-          <ActivityFeed trades={state.trades} />
+          <ActivityFeed trades={state.trades} chatMessages={state.chatMessages} myAgent={myAgent} />
         </div>
         <div className="grid-stats">
           <MarketStats
@@ -93,15 +105,31 @@ function DashboardInner() {
       />
       {state.gameStatus === 'finished' && <GameOver data={state.gameOver} />}
 
+      {/* Autonomy banner — reminds students their agent trades on its own */}
+      {state.gameStatus === 'running' && myAgent && (
+        <div className="autonomy-banner">
+          <span>Your agent <strong className="text-cyan">{myAgent}</strong> is trading autonomously based on your prompt. Sit back and watch!</span>
+        </div>
+      )}
+
       {/* Waiting state */}
       {state.gameStatus === 'waiting' && (
         <div className="waiting-overlay">
           <div className="waiting-content">
             <h2 className="mono text-cyan">MARKET PANIC</h2>
-            <p className="text-secondary">Waiting for the instructor to start the game...</p>
+            {myAgent ? (
+              <p className="text-secondary">Your agent <strong className="text-cyan">{myAgent}</strong> is ready! Waiting for the instructor to start...</p>
+            ) : (
+              <p className="text-secondary">Waiting for the instructor to start the game...</p>
+            )}
             <div className="waiting-dots">
               <span className="status-dot status-dot--thinking" />
             </div>
+            {sounds?.muted && (
+              <button className="sound-unlock-btn" onClick={sounds.toggleMute}>
+                Enable Sound
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -137,6 +165,42 @@ function DashboardInner() {
           border-radius: 0;
         }
 
+        .autonomy-banner {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 30;
+          background: rgba(0, 240, 255, 0.08);
+          border-top: 1px solid rgba(0, 240, 255, 0.2);
+          padding: 8px 20px;
+          text-align: center;
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+          backdrop-filter: blur(8px);
+          animation: banner-fade-in 0.5s ease;
+        }
+        @keyframes banner-fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .sound-unlock-btn {
+          margin-top: 1.5rem;
+          padding: 12px 32px;
+          background: var(--bg-tertiary);
+          border: 1px solid var(--accent-cyan);
+          box-shadow: var(--glow-cyan);
+          color: var(--accent-cyan);
+          font-family: var(--font-mono);
+          font-size: 0.9rem;
+          font-weight: 700;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .sound-unlock-btn:hover {
+          background: var(--bg-elevated);
+        }
         .waiting-overlay {
           position: fixed;
           inset: 0;

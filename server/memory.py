@@ -1,13 +1,16 @@
 """
 Market Panic — Agent Memory System
 
-Per-agent ChromaDB collections for storing, retrieving, and compressing
-memories. Each agent gets their own collection. This is the memory
-architecture from Session 6.
+Uses a single shared ChromaDB collection with agent_name as metadata filter.
+This avoids SQLite lock contention and memory explosion with 50+ agents.
+Each agent's memories are isolated by filtering on the "agent" metadata field.
+
+This is the memory architecture from Session 6.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from hashlib import md5
 
@@ -57,24 +60,36 @@ def score_importance(event_type: str, magnitude: float = 0.0) -> int:
         return 3
 
 
-class AgentMemory:
-    """
-    Per-agent memory using ChromaDB.
+# ── Shared Collection Setup ──────────────────────────────────
 
-    Each agent gets their own collection for semantic search over
-    their personal history of events, trades, and observations.
-    """
+_shared_collection = None
 
-    def __init__(self, agent_name: str, client: chromadb.Client):
-        self.agent_name = agent_name
-        self.client = client
-        safe_name = agent_name.lower().replace(" ", "_")[:30]
+
+def get_shared_collection(client: chromadb.ClientAPI):
+    """Get or create the single shared memories collection."""
+    global _shared_collection
+    if _shared_collection is None:
         from server.knowledge_base import GeminiEmbeddingFunction
-        self.collection = client.get_or_create_collection(
-            name=f"agent_{safe_name}_memories",
+        _shared_collection = client.get_or_create_collection(
+            name="agent_memories",
             metadata={"hnsw:space": "cosine"},
             embedding_function=GeminiEmbeddingFunction(),
         )
+    return _shared_collection
+
+
+class AgentMemory:
+    """
+    Per-agent memory using a shared ChromaDB collection.
+
+    All agents share one collection — each agent's memories are isolated
+    by filtering on the "agent" metadata field. This prevents the
+    SQLite lock contention and memory overhead of 50 separate collections.
+    """
+
+    def __init__(self, agent_name: str, client: chromadb.ClientAPI):
+        self.agent_name = agent_name
+        self.collection = get_shared_collection(client)
 
     def store(
         self,
@@ -83,33 +98,69 @@ class AgentMemory:
         importance: int,
         event_type: str,
     ):
-        """Store a single memory with metadata."""
+        """Store a single memory with metadata (sync)."""
         mem_id = f"mem_{self.agent_name}_{round_num}_{md5(text.encode()).hexdigest()[:8]}"
         self.collection.add(
             ids=[mem_id],
             documents=[text],
             metadatas=[{
+                "agent": self.agent_name,
                 "round": round_num,
                 "importance": importance,
                 "type": event_type,
             }],
         )
 
+    async def astore(
+        self,
+        text: str,
+        round_num: int,
+        importance: int,
+        event_type: str,
+    ):
+        """Store a single memory (async — won't block the event loop)."""
+        await asyncio.to_thread(self.store, text, round_num, importance, event_type)
+
     def retrieve(self, query: str, n_results: int = 10, min_importance: int = 3) -> list[dict]:
         """
-        Retrieve relevant memories using semantic search + importance filter.
+        Retrieve relevant memories using semantic search + importance filter (sync).
 
         Returns list of dicts with text, round, importance, type.
         """
         try:
-            count = self.collection.count()
+            # Count this agent's memories only
+            all_results = self.collection.get(
+                where={"agent": {"$eq": self.agent_name}},
+                limit=1,
+                include=[],
+            )
+            count = len(all_results["ids"]) if all_results["ids"] else 0
+            # Use a full count if the limit=1 trick suggests there are items
+            if count > 0:
+                all_ids = self.collection.get(
+                    where={"agent": {"$eq": self.agent_name}},
+                    include=[],
+                )
+                count = len(all_ids["ids"])
+
             if count == 0:
                 return []
+
+            # Build where clause: always filter by agent, optionally by importance
+            if count > n_results:
+                where = {
+                    "$and": [
+                        {"agent": {"$eq": self.agent_name}},
+                        {"importance": {"$gte": min_importance}},
+                    ]
+                }
+            else:
+                where = {"agent": {"$eq": self.agent_name}}
 
             results = self.collection.query(
                 query_texts=[query],
                 n_results=min(n_results, count),
-                where={"importance": {"$gte": min_importance}} if count > n_results else None,
+                where=where,
             )
 
             memories = []
@@ -127,15 +178,15 @@ class AgentMemory:
             logger.warning(f"Memory retrieval failed for {self.agent_name}: {e}")
             return []
 
-    def get_all(self) -> list[dict]:
-        """Get all memories for display in AgentInspector."""
-        try:
-            count = self.collection.count()
-            if count == 0:
-                return []
+    async def aretrieve(self, query: str, n_results: int = 10, min_importance: int = 3) -> list[dict]:
+        """Retrieve relevant memories (async — won't block the event loop)."""
+        return await asyncio.to_thread(self.retrieve, query, n_results, min_importance)
 
+    def get_all(self) -> list[dict]:
+        """Get all memories for display in AgentInspector (sync)."""
+        try:
             results = self.collection.get(
-                limit=count,
+                where={"agent": {"$eq": self.agent_name}},
                 include=["documents", "metadatas"],
             )
 
@@ -155,9 +206,20 @@ class AgentMemory:
             logger.warning(f"Failed to get all memories for {self.agent_name}: {e}")
             return []
 
+    async def aget_all(self) -> list[dict]:
+        """Get all memories (async — won't block the event loop)."""
+        return await asyncio.to_thread(self.get_all)
+
     def count(self) -> int:
-        """Return total number of memories."""
-        return self.collection.count()
+        """Return total number of memories for this agent."""
+        try:
+            results = self.collection.get(
+                where={"agent": {"$eq": self.agent_name}},
+                include=[],
+            )
+            return len(results["ids"])
+        except Exception:
+            return 0
 
     async def compress(self, current_round: int, gemini_model: str | None = None):
         """

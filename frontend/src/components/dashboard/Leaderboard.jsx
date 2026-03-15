@@ -1,7 +1,8 @@
 import { AnimatePresence } from 'framer-motion'
 import LeaderboardRow from './LeaderboardRow'
 
-export default function Leaderboard({ rankings, onSelectAgent }) {
+export default function Leaderboard({ rankings, onSelectAgent, myAgent }) {
+  const count = (rankings || []).length
   return (
     <div className="leaderboard panel">
       <div className="panel-header">LEADERBOARD</div>
@@ -15,6 +16,8 @@ export default function Leaderboard({ rankings, onSelectAgent }) {
               portfolioValue={entry.portfolio_value}
               lastAction={entry.last_action}
               status={entry.status}
+              isMe={entry.name === myAgent}
+              disableLayout={count > 10}
               onClick={() => onSelectAgent(entry.name)}
             />
           ))}

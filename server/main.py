@@ -196,7 +196,7 @@ async def list_agents():
 @app.get("/api/agents/{name}")
 async def get_agent(name: str):
     """Get full agent inspection data."""
-    data = orchestrator.get_agent_inspection(name)
+    data = await orchestrator.get_agent_inspection(name)
     if not data:
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
     return data
@@ -421,7 +421,7 @@ async def _handle_instructor_message(data: dict, ws: WebSocket):
 
         elif msg_type == "inspect_agent":
             name = data.get("name", "")
-            inspection = orchestrator.get_agent_inspection(name)
+            inspection = await orchestrator.get_agent_inspection(name)
             if inspection:
                 await ws.send_json({
                     "type": "agent_inspection",

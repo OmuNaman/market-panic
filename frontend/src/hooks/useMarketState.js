@@ -11,6 +11,7 @@ const initialState = {
   rankings: [],
   news: [],         // { headline, category, severity, round }
   trades: [],       // { agent, action, ticker, amount, price, reasoning, round }
+  chatMessages: [], // { agent, text, round }
   activeEvents: [],
   inspectedAgent: null,  // full agent inspection data
   gameOver: null,   // { final_rankings, highlights }
@@ -24,7 +25,18 @@ function reducer(state, action) {
     case 'game_status':
       return { ...state, gameStatus: action.status }
 
-    case 'market_update':
+    case 'market_update': {
+      // If server sends full price_history (on connect), use it directly.
+      // Otherwise, accumulate locally: append current prices to each ticker's array.
+      let newHistory = state.priceHistory
+      if (action.price_history) {
+        newHistory = action.price_history
+      } else if (action.prices) {
+        newHistory = { ...state.priceHistory }
+        for (const [ticker, price] of Object.entries(action.prices)) {
+          newHistory[ticker] = [...(newHistory[ticker] || []), price]
+        }
+      }
       return {
         ...state,
         gameStatus: action.status ?? state.gameStatus,
@@ -32,11 +44,12 @@ function reducer(state, action) {
         totalRounds: action.total_rounds ?? state.totalRounds,
         prices: action.prices ?? state.prices,
         priceChanges: action.price_changes ?? state.priceChanges,
-        priceHistory: action.price_history ?? state.priceHistory,
+        priceHistory: newHistory,
         rankings: action.rankings ?? state.rankings,
         activeEvents: action.active_events ?? state.activeEvents,
         speed: action.speed ?? state.speed,
       }
+    }
 
     case 'agent_joined':
       return {
@@ -92,6 +105,15 @@ function reducer(state, action) {
             round: action.round,
           },
           ...state.news,
+        ].slice(0, 50),
+      }
+
+    case 'chat_message':
+      return {
+        ...state,
+        chatMessages: [
+          { agent: action.agent, text: action.text, round: action.round },
+          ...state.chatMessages,
         ].slice(0, 50),
       }
 
