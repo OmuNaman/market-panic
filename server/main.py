@@ -456,12 +456,31 @@ async def _handle_instructor_message(data: dict, ws: WebSocket):
 
 # ── Static File Serving (MUST be last) ───────────────────────
 # In production, FastAPI serves the built React frontend.
-# This mount catches all routes not handled by API/WS endpoints
-# and serves the SPA's index.html for client-side routing.
+# Static assets (JS, CSS, images) are served by the StaticFiles mount.
+# SPA routes (/join, /dashboard, /control) are caught by the catch-all
+# and served index.html so React Router handles them client-side.
 
 frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True))
+    from fastapi.responses import FileResponse
+
+    # Serve static assets (JS, CSS, etc.)
+    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+
+    # Serve other static files at root (favicon, icons)
+    @app.get("/favicon.svg")
+    @app.get("/icons.svg")
+    async def static_files(request):
+        file_path = frontend_dist / request.url.path.lstrip("/")
+        if file_path.exists():
+            return FileResponse(file_path)
+        raise HTTPException(status_code=404)
+
+    # SPA catch-all: serve index.html for any non-API route
+    @app.get("/{full_path:path}")
+    async def spa_catch_all(full_path: str):
+        return FileResponse(str(frontend_dist / "index.html"))
+
     logger.info(f"Serving frontend from {frontend_dist}")
 else:
     logger.info("Frontend dist not found — API-only mode (run 'cd frontend && npm run build')")
