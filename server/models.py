@@ -103,7 +103,7 @@ SEVERITY_IMPACT: dict[int, float] = {
     5: 0.18,
 }
 
-NEGATIVE_CATEGORIES: set[str] = {"scandal", "panic", "adverse_regulation"}
+NEGATIVE_CATEGORIES: set[str] = {"scandal", "panic"}
 POSITIVE_CATEGORIES: set[str] = {"earnings", "partnership", "recovery", "regulation"}
 
 
@@ -123,6 +123,10 @@ class MarketEvent(BaseModel):
         magnitude = SEVERITY_IMPACT.get(self.severity, 0.05)
         if self.category in NEGATIVE_CATEGORIES:
             return -magnitude
+        if self.category == "rumor":
+            # Rumors: positive impact initially (hype), but reduced magnitude
+            # The "damage" comes later when the rumor is denied
+            return magnitude * 0.7
         return magnitude
 
 
@@ -178,8 +182,8 @@ class GameConfig(BaseModel):
 # ── Agent Creation Request (from /join form) ─────────────────
 
 class AgentCreateRequest(BaseModel):
-    name: str = Field(max_length=20)
-    personality: str
-    strategy: str
+    name: str = Field(max_length=20, min_length=1, pattern=r'^[a-zA-Z0-9_\- ]+$')
+    personality: str = Field(min_length=1)
+    strategy: str = Field(min_length=1)
     risk_level: int = Field(ge=1, le=5, default=3)
     favorite_sectors: list[str] = Field(default_factory=list)

@@ -341,6 +341,7 @@ async def ws_instructor(websocket: WebSocket, password: str = Query("")):
     Receives broadcasts AND accepts control commands.
     """
     if password != CONTROL_PASSWORD:
+        await websocket.accept()
         await websocket.close(code=4003, reason="Invalid password")
         return
 

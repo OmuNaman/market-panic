@@ -67,6 +67,7 @@ class GameOrchestrator:
 
         # Trade history per round (for highlights)
         self.all_trades: list[Trade] = []
+        self._broadcast_event_ids: set[str] = set()  # track which events were already broadcast
 
     async def initialize(self):
         """Initialize knowledge base. Called on server startup."""
@@ -151,8 +152,8 @@ class GameOrchestrator:
     # ── Game Control ──────────────────────────────────────────
 
     async def start_game(self, config: dict | None = None):
-        """Start the simulation."""
-        if self.status != GameStatus.WAITING:
+        """Start the simulation. Can start from WAITING or FINISHED (restart)."""
+        if self.status not in (GameStatus.WAITING, GameStatus.FINISHED):
             raise ValueError(f"Cannot start game in '{self.status}' state")
 
         if config:
@@ -167,6 +168,7 @@ class GameOrchestrator:
         self.events.clear()
         self.all_trades.clear()
         self.chat_log.clear()
+        self._broadcast_event_ids.clear()
 
         # Reset agent portfolios
         for agent in self.agents.values():
@@ -236,6 +238,7 @@ class GameOrchestrator:
         event = MarketEvent(**event_data)
         self.events.inject_event(event, self.current_round)
 
+        self._broadcast_event_ids.add(event.id)
         await self._broadcast({
             "type": "news_event",
             "headline": event.headline,
@@ -252,9 +255,10 @@ class GameOrchestrator:
         """Inject a pre-built scenario."""
         events = self.events.inject_scenario(scenario_name, self.current_round)
 
-        # Broadcast the first event immediately (others fire on their round_offset)
+        # Broadcast events that fire this round immediately (others fire on their round)
         for event in events:
             if event.round_injected == self.current_round:
+                self._broadcast_event_ids.add(event.id)
                 await self._broadcast({
                     "type": "news_event",
                     "headline": event.headline,
@@ -287,9 +291,20 @@ class GameOrchestrator:
                 interval = self.config.round_duration / self.config.speed_multiplier
                 await asyncio.sleep(interval)
 
-            # Game completed all rounds
+            # Game completed all rounds — finalize directly (don't call end_game
+            # which would try to cancel this task from within itself)
             if self.status == GameStatus.RUNNING:
-                await self.end_game()
+                self.status = GameStatus.FINISHED
+                agents_list = list(self.agents.values())
+                final_rankings = get_rankings(agents_list, self.market.prices)
+                highlights = self._compute_highlights()
+                await self._broadcast({
+                    "type": "game_over",
+                    "final_rankings": final_rankings,
+                    "highlights": highlights,
+                })
+                await self._broadcast({"type": "game_status", "status": "finished"})
+                logger.info("Game ended (all rounds complete)")
 
         except asyncio.CancelledError:
             logger.info("Game loop cancelled")
@@ -314,9 +329,10 @@ class GameOrchestrator:
         new_prices = self.market.tick(active_events, round_num)
         price_changes = self.market.get_price_changes()
 
-        # Broadcast any new events this round
+        # Broadcast any new events this round (skip already-broadcast ones)
         for event in active_events:
-            if event.round_injected == round_num:
+            if event.round_injected == round_num and event.id not in self._broadcast_event_ids:
+                self._broadcast_event_ids.add(event.id)
                 await self._broadcast({
                     "type": "news_event",
                     "headline": event.headline,
@@ -360,9 +376,9 @@ class GameOrchestrator:
             # 4. Apply order pressure from trades
             self.market.apply_order_pressure(round_trades)
 
-            # Broadcast individual trades
+            # Broadcast individual trades (only actual trades, not amount=0)
             for trade in round_trades:
-                if trade.action in ("BUY", "SELL"):
+                if trade.action in ("BUY", "SELL") and trade.amount > 0:
                     await self._broadcast({
                         "type": "trade_executed",
                         "agent": trade.agent_name,

@@ -37,10 +37,11 @@ class EventEngine:
         return event
 
     def get_active(self, current_round: int) -> list[MarketEvent]:
-        """Return events that are still active (haven't fully decayed)."""
+        """Return events that have started AND haven't fully decayed."""
         self.active_events = [
             e for e in self.active_events
-            if (current_round - e.round_injected) < e.duration_rounds
+            if e.round_injected <= current_round  # must have started
+            and (current_round - e.round_injected) < e.duration_rounds  # not expired
         ]
         return self.active_events
 
