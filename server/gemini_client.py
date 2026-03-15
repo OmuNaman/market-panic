@@ -2,7 +2,7 @@
 Market Panic — Gemini Client
 
 Shared Gemini client using the new google.genai SDK.
-Uses gemini-2.5-pro for agent brains and gemini-embedding-001 for embeddings.
+Uses gemini-2.5-flash for agent brains and gemini-embedding-001 for embeddings.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from google.genai import types
 load_dotenv()
 
 # Model constants
-LLM_MODEL = "gemini-2.5-pro"
+LLM_MODEL = "gemini-2.5-flash"
 FLASH_MODEL = "gemini-2.5-flash"
 EMBEDDING_MODEL = "gemini-embedding-001"
 
