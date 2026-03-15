@@ -52,7 +52,9 @@ class GameOrchestrator:
         # Agents
         self.agents: dict[str, AgentState] = {}
         self.agent_memories: dict[str, AgentMemory] = {}
-        self.chromadb_client = chromadb.PersistentClient(path="./chroma_db")
+        # Use in-memory for Railway (ephemeral disk doesn't survive redeploys)
+        # Use PersistentClient locally: chromadb.PersistentClient(path="./chroma_db")
+        self.chromadb_client = chromadb.Client()
 
         # Chat log
         self.chat_log: list[str] = []
