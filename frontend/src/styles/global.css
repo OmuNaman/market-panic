@@ -1,0 +1,321 @@
+/* ══════════════════════════════════════════════════════════
+   Market Panic — Design System
+   "Neon Trading Floor" — dark theme, glowing accents, mono numbers
+   ══════════════════════════════════════════════════════════ */
+
+:root {
+  /* Background */
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #12121a;
+  --bg-tertiary: #1a1a2e;
+  --bg-elevated: #22223a;
+
+  /* Borders */
+  --border-subtle: #2a2a3e;
+  --border-glow: rgba(0, 240, 255, 0.15);
+
+  /* Text */
+  --text-primary: #e8e8f0;
+  --text-secondary: #8888a0;
+  --text-muted: #555570;
+
+  /* Accents */
+  --accent-cyan: #00f0ff;
+  --accent-pink: #ff2d7a;
+  --accent-green: #00e676;
+  --accent-amber: #ffab00;
+  --accent-purple: #b388ff;
+
+  /* Glows */
+  --glow-cyan: 0 0 20px rgba(0, 240, 255, 0.3);
+  --glow-pink: 0 0 20px rgba(255, 45, 122, 0.3);
+  --glow-green: 0 0 20px rgba(0, 230, 118, 0.3);
+
+  /* Motion */
+  --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'DM Sans', sans-serif;
+}
+
+/* ── Reset & Base ──────────────────────────────────────── */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle noise texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Typography ────────────────────────────────────────── */
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
+
+/* All numbers should be mono */
+.price, .value, .stat-number, .rank {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ── Panel / Card ──────────────────────────────────────── */
+
+.panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.panel-body {
+  padding: 16px;
+}
+
+/* ── Status Dots ───────────────────────────────────────── */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot--active {
+  background: var(--accent-green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.status-dot--thinking {
+  background: var(--accent-amber);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.status-dot--error {
+  background: var(--accent-pink);
+}
+
+.status-dot--idle {
+  background: var(--text-muted);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+/* ── Price Flashes ─────────────────────────────────────── */
+
+.price-up {
+  color: var(--accent-green);
+}
+
+.price-down {
+  color: var(--accent-pink);
+}
+
+@keyframes flash-green {
+  0% { background: rgba(0, 230, 118, 0.3); }
+  100% { background: transparent; }
+}
+
+@keyframes flash-pink {
+  0% { background: rgba(255, 45, 122, 0.3); }
+  100% { background: transparent; }
+}
+
+.flash-up {
+  animation: flash-green 0.6s var(--ease-snappy);
+}
+
+.flash-down {
+  animation: flash-pink 0.6s var(--ease-snappy);
+}
+
+/* ── Buttons ───────────────────────────────────────────── */
+
+button {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s var(--ease-snappy);
+}
+
+.btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+
+.btn-primary {
+  background: transparent;
+  color: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-primary:hover {
+  background: rgba(0, 240, 255, 0.1);
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--accent-pink);
+  border: 1px solid var(--accent-pink);
+  box-shadow: var(--glow-pink);
+}
+
+.btn-danger:hover {
+  background: rgba(255, 45, 122, 0.1);
+}
+
+.btn-success {
+  background: transparent;
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+  box-shadow: var(--glow-green);
+}
+
+.btn-success:hover {
+  background: rgba(0, 230, 118, 0.1);
+}
+
+/* ── Inputs ────────────────────────────────────────────── */
+
+input, textarea, select {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px 16px;
+  outline: none;
+  transition: border-color 0.2s var(--ease-snappy), box-shadow 0.2s var(--ease-snappy);
+  width: 100%;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.15);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ── Action Badges ─────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge-buy {
+  color: var(--accent-green);
+  background: rgba(0, 230, 118, 0.15);
+}
+
+.badge-sell {
+  color: var(--accent-pink);
+  background: rgba(255, 45, 122, 0.15);
+}
+
+.badge-hold {
+  color: var(--text-muted);
+  background: rgba(85, 85, 112, 0.15);
+}
+
+.badge-chat {
+  color: var(--accent-purple);
+  background: rgba(179, 136, 255, 0.15);
+}
+
+/* ── Utility ───────────────────────────────────────────── */
+
+.text-muted { color: var(--text-muted); }
+.text-secondary { color: var(--text-secondary); }
+.text-cyan { color: var(--accent-cyan); }
+.text-pink { color: var(--accent-pink); }
+.text-green { color: var(--accent-green); }
+.text-amber { color: var(--accent-amber); }

@@ -1,0 +1,161 @@
+# Market Panic — Pre-built Event Scenarios
+# Each scenario is a list of events with round_offset relative to injection time.
+
+flash_crash:
+  - headline: "BREAKING: Algorithmic trading glitch triggers market-wide sell-off"
+    category: panic
+    affected_tickers: ["ALL"]
+    severity: 5
+    is_true: true
+    duration_rounds: 4
+    round_offset: 0
+  - headline: "Trading halted briefly — circuit breakers triggered across exchanges"
+    category: panic
+    affected_tickers: ["ALL"]
+    severity: 3
+    is_true: true
+    duration_rounds: 2
+    round_offset: 1
+  - headline: "Federal Reserve issues emergency statement: 'Markets are functioning normally'"
+    category: recovery
+    affected_tickers: ["ALL"]
+    severity: 3
+    is_true: true
+    duration_rounds: 3
+    round_offset: 3
+
+earnings_season:
+  - headline: "FoodCo beats Q3 estimates by 18% — record agricultural yields"
+    category: earnings
+    affected_tickers: ["FOOD"]
+    severity: 3
+    is_true: true
+    duration_rounds: 4
+    round_offset: 0
+  - headline: "TechNova reports strong AI chip demand — revenue up 25% YoY"
+    category: earnings
+    affected_tickers: ["NOVA"]
+    severity: 4
+    is_true: true
+    duration_rounds: 4
+    round_offset: 1
+  - headline: "LuxeGlobal misses estimates — luxury spending slows in Asia"
+    category: scandal
+    affected_tickers: ["LUXE"]
+    severity: 3
+    is_true: true
+    duration_rounds: 3
+    round_offset: 2
+  - headline: "IronShield wins $2B defense contract from NATO"
+    category: partnership
+    affected_tickers: ["IRON"]
+    severity: 4
+    is_true: true
+    duration_rounds: 5
+    round_offset: 3
+
+the_big_lie:
+  - headline: "RUMOR: TechNova in advanced merger talks with MediCorp — $50B deal"
+    category: rumor
+    affected_tickers: ["NOVA", "MEDI"]
+    severity: 5
+    is_true: false
+    duration_rounds: 3
+    round_offset: 0
+  - headline: "Anonymous sources confirm NOVA-MEDI merger 'imminent'"
+    category: rumor
+    affected_tickers: ["NOVA", "MEDI"]
+    severity: 4
+    is_true: false
+    duration_rounds: 2
+    round_offset: 1
+  - headline: "BREAKING: TechNova CEO denies merger rumors — 'No talks underway'"
+    category: scandal
+    affected_tickers: ["NOVA", "MEDI"]
+    severity: 4
+    is_true: true
+    duration_rounds: 3
+    round_offset: 3
+
+sector_rotation:
+  - headline: "Analysts warn AI bubble showing signs of overvaluation"
+    category: scandal
+    affected_tickers: ["NOVA"]
+    severity: 3
+    is_true: true
+    duration_rounds: 4
+    round_offset: 0
+  - headline: "Rising geopolitical tensions drive investors toward defense sector"
+    category: partnership
+    affected_tickers: ["IRON"]
+    severity: 3
+    is_true: true
+    duration_rounds: 4
+    round_offset: 0
+  - headline: "New government clean energy subsidies announced — $100B package"
+    category: regulation
+    affected_tickers: ["GRNE"]
+    severity: 4
+    is_true: true
+    duration_rounds: 5
+    round_offset: 1
+  - headline: "Luxury stocks under pressure as consumer confidence drops"
+    category: panic
+    affected_tickers: ["LUXE"]
+    severity: 2
+    is_true: true
+    duration_rounds: 3
+    round_offset: 2
+
+bull_run:
+  - headline: "Federal Reserve cuts interest rates by 50 basis points"
+    category: recovery
+    affected_tickers: ["ALL"]
+    severity: 4
+    is_true: true
+    duration_rounds: 5
+    round_offset: 0
+  - headline: "Consumer confidence hits 10-year high — spending surges"
+    category: earnings
+    affected_tickers: ["LUXE", "FOOD"]
+    severity: 3
+    is_true: true
+    duration_rounds: 4
+    round_offset: 1
+  - headline: "Tech sector breakout — AI revenues exceed all forecasts"
+    category: earnings
+    affected_tickers: ["NOVA"]
+    severity: 4
+    is_true: true
+    duration_rounds: 4
+    round_offset: 2
+  - headline: "GreenPulse secures major solar farm contract in Middle East"
+    category: partnership
+    affected_tickers: ["GRNE"]
+    severity: 3
+    is_true: true
+    duration_rounds: 4
+    round_offset: 3
+
+insider_tip:
+  - headline: "Unusual options activity detected in MediCorp — large call positions"
+    category: rumor
+    affected_tickers: ["MEDI"]
+    severity: 2
+    is_true: true
+    duration_rounds: 2
+    round_offset: 0
+  - headline: "BREAKING: MediCorp announces breakthrough cancer drug — FDA fast-track approval"
+    category: earnings
+    affected_tickers: ["MEDI"]
+    severity: 5
+    is_true: true
+    duration_rounds: 5
+    round_offset: 2
+  - headline: "Pharma sector rally — MediCorp breakthrough lifts entire industry"
+    category: recovery
+    affected_tickers: ["MEDI"]
+    severity: 3
+    is_true: true
+    duration_rounds: 3
+    round_offset: 3
