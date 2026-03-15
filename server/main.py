@@ -172,6 +172,21 @@ async def agent_count():
     return {"count": len(orchestrator.agents)}
 
 
+@app.get("/api/health")
+async def health():
+    """Health check with debug info."""
+    dist_path = Path(__file__).parent.parent / "frontend" / "dist"
+    dist_exists = dist_path.exists()
+    index_exists = (dist_path / "index.html").exists() if dist_exists else False
+    return {
+        "status": "ok",
+        "dist_path": str(dist_path),
+        "dist_exists": dist_exists,
+        "index_exists": index_exists,
+        "dist_files": list(str(f.name) for f in dist_path.iterdir()) if dist_exists else [],
+    }
+
+
 @app.get("/api/agents")
 async def list_agents():
     """List all agents with basic info."""
