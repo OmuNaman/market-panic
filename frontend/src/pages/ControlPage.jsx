@@ -7,6 +7,7 @@ import ScenarioLoader from '../components/control/ScenarioLoader'
 import AgentManager from '../components/control/AgentManager'
 import LiveStats from '../components/control/LiveStats'
 import EventTimeline from '../components/control/EventTimeline'
+import AgentInspector from '../components/dashboard/AgentInspector'
 
 export default function ControlPage() {
   const [password, setPassword] = useState(sessionStorage.getItem('control_password') || '')
@@ -71,7 +72,7 @@ export default function ControlPage() {
 }
 
 function ControlInner({ password, onAuthFail }) {
-  const { state, handleMessage } = useMarketState()
+  const { state, dispatch, handleMessage } = useMarketState()
 
   const { sendMessage, isConnected, authFailed } = useWebSocket('/ws/instructor', {
     onMessage: handleMessage,
@@ -147,6 +148,11 @@ function ControlInner({ password, onAuthFail }) {
           <EventTimeline news={state.news} />
         </div>
       </div>
+
+      <AgentInspector
+        agent={state.inspectedAgent}
+        onClose={() => dispatch({ type: 'clear_inspection' })}
+      />
 
       <style>{`
         .control-page {
