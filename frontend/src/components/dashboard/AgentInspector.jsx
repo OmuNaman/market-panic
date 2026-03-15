@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { formatCash, formatPrice } from '../../utils/formatters'
 import { ACTION_COLORS } from '../../utils/colors'
 
-const TABS = ['Portfolio', 'Memories', 'Decisions']
+const TABS = ['Portfolio', 'Memories', 'Decisions', 'Config']
 
 export default function AgentInspector({ agent, onClose }) {
   const [activeTab, setActiveTab] = useState('Portfolio')
@@ -69,6 +69,7 @@ export default function AgentInspector({ agent, onClose }) {
             {activeTab === 'Portfolio' && <PortfolioTab agent={agent} />}
             {activeTab === 'Memories' && <MemoriesTab memories={agent.memories} />}
             {activeTab === 'Decisions' && <DecisionsTab decisions={agent.decisions} />}
+            {activeTab === 'Config' && <ConfigTab agent={agent} />}
           </div>
         </motion.div>
       </motion.div>
@@ -334,6 +335,45 @@ function DecisionsTab({ decisions }) {
           <div className="decision-reasoning">{d.reasoning}</div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function ConfigTab({ agent }) {
+  const focusLabels = { episodic: '🎯 Episodic', semantic: '🧠 Semantic', procedural: '⚡ Procedural' }
+  const forgetLabels = { 1: '🐘 Elephant', 2: '📚 Studious', 3: '⚖️ Balanced', 4: '💨 Breezy', 5: '🐠 Goldfish' }
+  const mdc = agent.market_data_config || {}
+  const mf = agent.memory_filters || {}
+
+  const ConfigRow = ({ label, value }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(42,42,62,0.3)', fontSize: '0.78rem' }}>
+      <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+      <span className="mono" style={{ color: 'var(--accent-cyan)' }}>{value}</span>
+    </div>
+  )
+
+  return (
+    <div>
+      <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 8 }}>TOKEN WAR ROOM</div>
+      <ConfigRow label="Research docs" value={agent.rag_doc_count ?? 5} />
+      <ConfigRow label="Memory slots" value={agent.memory_recall_count ?? 10} />
+      <ConfigRow label="Min importance" value={agent.memory_importance_threshold ?? 3} />
+      <ConfigRow label="Chat messages" value={agent.chat_history_count ?? 5} />
+      <ConfigRow label="Price changes" value={mdc.price_changes !== false ? 'ON' : 'OFF'} />
+      <ConfigRow label="Full history" value={mdc.full_price_history ? 'ON' : 'OFF'} />
+      <ConfigRow label="Portfolio" value={mdc.portfolio_state !== false ? 'ON' : 'OFF'} />
+      <ConfigRow label="News events" value={mdc.active_events !== false ? 'ON' : 'OFF'} />
+      <ConfigRow label="Leaderboard" value={mdc.agent_rankings ? 'ON' : 'OFF'} />
+
+      <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', marginTop: 16, marginBottom: 8 }}>MEMORY ARCHITECT</div>
+      <ConfigRow label="Focus" value={focusLabels[agent.memory_focus] || 'episodic'} />
+      <ConfigRow label="Decay speed" value={forgetLabels[agent.forgetting_speed] || 3} />
+      <ConfigRow label="Compress after" value={`${agent.compression_trigger ?? 50} memories`} />
+      <ConfigRow label="Price threshold" value={`${mf.price_threshold ?? 3}%`} />
+      <ConfigRow label="Remember trades" value={mf.own_trades !== false ? 'ON' : 'OFF'} />
+      <ConfigRow label="Remember chat" value={mf.chat_messages ? 'ON' : 'OFF'} />
+      <ConfigRow label="Portfolio snaps" value={mf.portfolio_snapshots ? 'ON' : 'OFF'} />
+      <ConfigRow label="HOLD decisions" value={mf.failed_trades ? 'ON' : 'OFF'} />
     </div>
   )
 }

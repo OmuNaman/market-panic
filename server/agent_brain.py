@@ -21,7 +21,7 @@ import logging
 import re
 import time
 
-from server.gemini_client import generate, LLM_MODEL
+from server.gemini_client import generate, LLM_MODEL, FLASH_MODEL
 from server.knowledge_base import KnowledgeBase
 from server.memory import AgentMemory, score_importance
 from server.models import (
@@ -49,6 +49,7 @@ async def run_agent_brain(
     knowledge_base: KnowledgeBase,
     memory: AgentMemory,
     gemini_model: str = LLM_MODEL,
+    rankings: list[dict] | None = None,
 ) -> Trade:
     """
     Run one round of decision-making for a single agent.
@@ -67,27 +68,32 @@ async def run_agent_brain(
         # ─────────────────────────────────────────────────
         # STEP 1: RAG — Retrieve relevant knowledge
         # (Session 3: Write, Select, Compress, Isolate)
+        # Uses agent.rag_doc_count (Token War Room setting)
         # ─────────────────────────────────────────────────
         relevant_knowledge = retrieve_knowledge(
-            knowledge_base, prices, price_changes, active_events
+            knowledge_base, prices, price_changes, active_events, agent
         )
 
         # ─────────────────────────────────────────────────
         # STEP 2: MEMORY — Recall past experiences
         # (Session 6: Memory Architectures)
+        # Uses agent.memory_recall_count, memory_importance_threshold,
+        # forgetting_speed (Memory Architect settings)
         # ─────────────────────────────────────────────────
         relevant_memories = recall_memories(
-            memory, prices, price_changes, active_events, agent
+            memory, prices, price_changes, active_events, agent, round_num
         )
 
         # ─────────────────────────────────────────────────
         # STEP 3: ANALYZE — Feed everything to Gemini
         # (Session 2: Context Engineering / Prompt Design)
+        # Uses agent.market_data_config, chat_history_count
+        # (Token War Room settings control what context is included)
         # ─────────────────────────────────────────────────
         analysis = await analyze_market(
             agent, prices, price_changes, active_events,
             chat_log, relevant_knowledge, relevant_memories,
-            round_num, gemini_model
+            round_num, gemini_model, rankings
         )
 
         # ─────────────────────────────────────────────────
@@ -101,8 +107,10 @@ async def run_agent_brain(
         # ─────────────────────────────────────────────────
         # STEP 5: REMEMBER — Store this round's events
         # (Session 6: Memory Architectures)
+        # Uses agent.memory_filters, memory_focus
+        # (Memory Architect settings control what + how to remember)
         # ─────────────────────────────────────────────────
-        store_round_memories(
+        await store_round_memories(
             memory, agent, prices, price_changes,
             active_events, trade, round_num
         )
@@ -110,8 +118,9 @@ async def run_agent_brain(
         # ─────────────────────────────────────────────────
         # STEP 6: COMPRESS — If memory is getting too big
         # (Session 5: Compress & Isolate)
+        # Uses agent.compression_trigger (Memory Architect setting)
         # ─────────────────────────────────────────────────
-        if memory.count() > 50:
+        if memory.count() > agent.compression_trigger:
             await memory.compress(round_num, gemini_model)
 
         # Track response time
@@ -138,6 +147,10 @@ async def run_agent_brain(
 # This is the "Select" in WSCI (Write, Select, Compress, Isolate).
 # The knowledge base has ~50 pre-loaded documents about companies,
 # sectors, historical patterns, and trading strategies.
+#
+# Token War Room: agent.rag_doc_count controls how many docs
+# are retrieved. More docs = more context = better informed,
+# but also more tokens consumed per round.
 # ══════════════════════════════════════════════════════════════
 
 def retrieve_knowledge(
@@ -145,15 +158,17 @@ def retrieve_knowledge(
     prices: dict[str, float],
     price_changes: dict[str, float],
     active_events: list[MarketEvent],
+    agent: AgentState,
 ) -> list[str]:
     """Turn current market state into a natural language query for RAG."""
 
     # Build a query from what's happening right now
+    price_threshold = agent.memory_filters.get("price_threshold", 3.0)
     query_parts = []
 
     # Mention big movers
     for ticker, change in price_changes.items():
-        if abs(change) > 3.0:
+        if abs(change) > price_threshold:
             company = COMPANY_MAP.get(ticker)
             direction = "rising" if change > 0 else "dropping"
             sector = company.sector if company else ticker
@@ -168,7 +183,7 @@ def retrieve_knowledge(
         query_parts.append("current market conditions, trading strategies, sector analysis")
 
     query = ", ".join(query_parts)
-    return knowledge_base.search(query, n_results=5)
+    return knowledge_base.search(query, n_results=agent.rag_doc_count)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -176,6 +191,10 @@ def retrieve_knowledge(
 # Retrieve this agent's relevant past experiences.
 # Each agent has their own ChromaDB collection of memories
 # from previous rounds — trades, events, observations.
+#
+# Memory Architect: agent.memory_recall_count controls how many
+# memories to retrieve. agent.forgetting_speed applies decay
+# to old memories, making recent ones more prominent.
 # ══════════════════════════════════════════════════════════════
 
 def recall_memories(
@@ -184,8 +203,9 @@ def recall_memories(
     price_changes: dict[str, float],
     active_events: list[MarketEvent],
     agent: AgentState,
+    round_num: int,
 ) -> list[dict]:
-    """Build a query to find relevant personal memories."""
+    """Build a query to find relevant personal memories, apply forgetting decay."""
 
     query_parts = []
 
@@ -207,7 +227,30 @@ def recall_memories(
         query_parts.append("previous rounds, past trades, market events")
 
     query = ", ".join(query_parts)
-    return memory.retrieve(query, n_results=10, min_importance=3)
+    memories = memory.retrieve(
+        query,
+        n_results=agent.memory_recall_count,
+        min_importance=agent.memory_importance_threshold,
+    )
+
+    # ── Apply forgetting decay (Memory Architect) ──
+    # Higher forgetting_speed = faster decay = old memories fade
+    # This is a key teaching concept: memory architecture affects behavior
+    decay_factors = {1: 0.98, 2: 0.95, 3: 0.90, 4: 0.85, 5: 0.80}
+    decay = decay_factors.get(agent.forgetting_speed, 0.90)
+
+    for mem in memories:
+        elapsed = max(0, round_num - mem.get("round", 0))
+        mem["effective_importance"] = mem["importance"] * (decay ** elapsed)
+
+    # Re-filter by threshold after decay and re-sort
+    memories = [
+        m for m in memories
+        if m["effective_importance"] >= agent.memory_importance_threshold
+    ]
+    memories.sort(key=lambda m: m["effective_importance"], reverse=True)
+
+    return memories
 
 
 # ══════════════════════════════════════════════════════════════
@@ -215,6 +258,10 @@ def recall_memories(
 # Feed everything to Gemini with the agent's personality/strategy.
 # This is pure context engineering — the prompt structure determines
 # how the agent thinks. Different personality text → different analysis.
+#
+# Token War Room: agent.market_data_config controls which sections
+# of market data are included in the prompt. Removing unnecessary
+# sections saves tokens. Adding leaderboard gives competitive intel.
 # ══════════════════════════════════════════════════════════════
 
 async def analyze_market(
@@ -227,13 +274,11 @@ async def analyze_market(
     memories: list[dict],
     round_num: int,
     gemini_model: str,
+    rankings: list[dict] | None = None,
 ) -> str:
     """Build the analysis prompt with personality/strategy and call Gemini."""
 
     # ── System prompt: WHO the agent is ──
-    # The student's personality and strategy text goes right here.
-    # This is why different students' agents behave differently —
-    # their words become the agent's identity.
     system_prompt = f"""You are {agent.name}, a stock trader in a simulated market.
 
 PERSONALITY: {agent.personality}
@@ -248,76 +293,86 @@ You make one trading decision per round. Think carefully about your
 personality and strategy when analyzing the market. Stay in character."""
 
     # ── Analysis prompt: WHAT the agent sees ──
-    # This is structured context engineering — every section gives
-    # the agent a different type of information to reason about.
+    # Token War Room controls which sections are included
+    mdc = agent.market_data_config
 
-    # Format prices
-    prices_text = "\n".join(
-        f"  {ticker}: ${price:.2f} ({'▲' if price_changes.get(ticker, 0) >= 0 else '▼'} "
-        f"{abs(price_changes.get(ticker, 0)):.2f}%)"
-        for ticker, price in prices.items()
-    )
+    # Format prices (always included — core data)
+    if mdc.get("price_changes", True):
+        prices_text = "\n".join(
+            f"  {ticker}: ${price:.2f} ({'▲' if price_changes.get(ticker, 0) >= 0 else '▼'} "
+            f"{abs(price_changes.get(ticker, 0)):.2f}%)"
+            for ticker, price in prices.items()
+        )
+    else:
+        prices_text = "\n".join(
+            f"  {ticker}: ${price:.2f}" for ticker, price in prices.items()
+        )
 
-    # Format portfolio
-    from server.market import calculate_portfolio_value
-    total_value = calculate_portfolio_value(agent.portfolio, prices)
-    holdings_text = "\n".join(
-        f"  {ticker}: {shares} shares (worth ${shares * prices.get(ticker, 0):.2f})"
-        for ticker, shares in agent.portfolio.holdings.items()
-    ) or "  (no holdings)"
+    sections = [f"=== ROUND {round_num} MARKET BRIEFING ===\n\nCURRENT PRICES:\n{prices_text}"]
 
-    # Format events
-    events_text = "\n".join(
-        f"  - [{e.category.upper()}] {e.headline} (severity {e.severity}/5)"
-        for e in active_events
-    ) or "  (no active events)"
+    # Full price history (optional — expensive, ~500 tokens)
+    if mdc.get("full_price_history", False):
+        sections.append("PRICE TREND: Full price change data included above for all tickers.")
 
-    # Format knowledge (from RAG)
+    # Portfolio (optional)
+    if mdc.get("portfolio_state", True):
+        from server.market import calculate_portfolio_value
+        total_value = calculate_portfolio_value(agent.portfolio, prices)
+        holdings_text = "\n".join(
+            f"  {ticker}: {shares} shares (worth ${shares * prices.get(ticker, 0):.2f})"
+            for ticker, shares in agent.portfolio.holdings.items()
+        ) or "  (no holdings)"
+        sections.append(
+            f"YOUR PORTFOLIO:\n  Cash: ${agent.portfolio.cash:.2f}\n  Holdings:\n{holdings_text}\n  Total Value: ${total_value:.2f}"
+        )
+
+    # Breaking news (optional)
+    if mdc.get("active_events", True):
+        events_text = "\n".join(
+            f"  - [{e.category.upper()}] {e.headline} (severity {e.severity}/5)"
+            for e in active_events
+        ) or "  (no active events)"
+        sections.append(f"BREAKING NEWS:\n{events_text}")
+
+    # Leaderboard (optional — competitive intelligence)
+    if mdc.get("agent_rankings", False) and rankings:
+        top_5 = rankings[:5]
+        lb_text = "\n".join(
+            f"  #{r['rank']} {r['name']}: ${r['portfolio_value']:,.2f}"
+            for r in top_5
+        )
+        sections.append(f"LEADERBOARD (top 5):\n{lb_text}")
+
+    # Knowledge (from RAG — always included if docs retrieved)
     knowledge_text = "\n".join(
         f"  - {k}" for k in knowledge
     ) or "  (no relevant intelligence)"
+    sections.append(f"MARKET INTELLIGENCE (from research):\n{knowledge_text}")
 
-    # Format memories
+    # Memories (always included if memories recalled)
     memories_text = "\n".join(
-        f"  - [Round {m['round']}] {m['text']} (importance: {m['importance']}/10)"
+        f"  - [Round {m['round']}] {m['text']} (importance: {m.get('effective_importance', m['importance']):.1f}/10)"
         for m in memories
     ) or "  (no relevant memories)"
+    sections.append(f"YOUR MEMORIES:\n{memories_text}")
 
-    # Format chat
-    chat_text = "\n".join(
-        f"  - {msg}" for msg in chat_log[-5:]
-    ) or "  (no chat messages)"
+    # Chat (optional — controlled by chat_history_count)
+    if agent.chat_history_count > 0 and chat_log:
+        recent_chat = chat_log[-agent.chat_history_count:]
+        chat_text = "\n".join(f"  - {msg}" for msg in recent_chat)
+        sections.append(f"RECENT CHAT:\n{chat_text}")
 
-    analysis_prompt = f"""=== ROUND {round_num} MARKET BRIEFING ===
+    sections.append(
+        "Based on your personality and strategy, analyze the current market situation.\n"
+        "Think step-by-step:\n"
+        "1. What's happening in the market right now?\n"
+        "2. How do the news events affect your holdings and target sectors?\n"
+        "3. Do your memories suggest any patterns or warnings?\n"
+        "4. What does the research say about situations like this?\n"
+        "5. Given your risk appetite, what should you do?"
+    )
 
-CURRENT PRICES:
-{prices_text}
-
-YOUR PORTFOLIO:
-  Cash: ${agent.portfolio.cash:.2f}
-  Holdings:
-{holdings_text}
-  Total Value: ${total_value:.2f}
-
-BREAKING NEWS:
-{events_text}
-
-MARKET INTELLIGENCE (from research):
-{knowledge_text}
-
-YOUR MEMORIES:
-{memories_text}
-
-RECENT CHAT:
-{chat_text}
-
-Based on your personality and strategy, analyze the current market situation.
-Think step-by-step:
-1. What's happening in the market right now?
-2. How do the news events affect your holdings and target sectors?
-3. Do your memories suggest any patterns or warnings?
-4. What does the research say about situations like this?
-5. Given your risk appetite, what should you do?"""
+    analysis_prompt = "\n\n".join(sections)
 
     try:
         return await generate(
@@ -521,9 +576,15 @@ def parse_decision(
 # Each memory gets an importance score that determines whether
 # it's retrieved in future rounds. High-importance memories
 # (big price moves, scandals, own trades) are recalled more often.
+#
+# Memory Architect: agent.memory_filters controls WHAT gets stored.
+# agent.memory_focus controls HOW it's stored:
+#   - episodic: raw events ("MEDI dropped 8%")
+#   - semantic: extracted patterns ("Pharma scandals cause 8-12% drops")
+#   - procedural: action rules ("When scandal hits, sell immediately")
 # ══════════════════════════════════════════════════════════════
 
-def store_round_memories(
+async def store_round_memories(
     memory: AgentMemory,
     agent: AgentState,
     prices: dict[str, float],
@@ -532,11 +593,17 @@ def store_round_memories(
     trade: Trade,
     round_num: int,
 ):
-    """Create memory entries from this round's events."""
+    """Create memory entries from this round's events, filtered by Memory Architect settings."""
 
     memories_to_store = build_round_memories(
-        prices, price_changes, active_events, trade, round_num
+        agent, prices, price_changes, active_events, trade, round_num
     )
+
+    # Apply memory focus transformation
+    if agent.memory_focus != "episodic" and memories_to_store:
+        memories_to_store = await transform_memory_focus(
+            memories_to_store, agent.memory_focus
+        )
 
     for mem in memories_to_store:
         memory.store(
@@ -548,6 +615,7 @@ def store_round_memories(
 
 
 def build_round_memories(
+    agent: AgentState,
     prices: dict[str, float],
     price_changes: dict[str, float],
     active_events: list[MarketEvent],
@@ -555,67 +623,145 @@ def build_round_memories(
     round_num: int,
 ) -> list[dict]:
     """
-    Build memory entries from this round.
+    Build memory entries from this round, filtered by Memory Architect settings.
 
-    Only stores significant events — not every boring 0.5% price move.
-    This filtering is important: without it, memory fills with noise
-    and retrieval quality degrades.
+    agent.memory_filters controls what types of events are remembered:
+    - price_moves + price_threshold: significant price changes
+    - news_events: market events from instructor
+    - own_trades: BUY/SELL trade results
+    - chat_messages: CHAT actions
+    - portfolio_snapshots: portfolio value each round (new)
+    - failed_trades: HOLD decisions with reasoning (new)
     """
     memories = []
+    filters = agent.memory_filters
+    price_threshold = filters.get("price_threshold", 3.0)
 
-    # Significant price moves (> 3%)
-    for ticker, change in price_changes.items():
-        if abs(change) > 3.0:
-            direction = "rose" if change > 0 else "dropped"
-            company = COMPANY_MAP.get(ticker)
-            name = company.name if company else ticker
-            memories.append({
-                "text": f"Round {round_num}: {name} ({ticker}) {direction} {abs(change):.1f}% "
-                        f"to ${prices.get(ticker, 0):.2f}",
-                "importance": score_importance("price_change", change),
-                "type": "price_change",
-            })
+    # Significant price moves
+    if filters.get("price_moves", True):
+        for ticker, change in price_changes.items():
+            if abs(change) > price_threshold:
+                direction = "rose" if change > 0 else "dropped"
+                company = COMPANY_MAP.get(ticker)
+                name = company.name if company else ticker
+                memories.append({
+                    "text": f"Round {round_num}: {name} ({ticker}) {direction} {abs(change):.1f}% "
+                            f"to ${prices.get(ticker, 0):.2f}",
+                    "importance": score_importance("price_change", change),
+                    "type": "price_change",
+                })
 
     # Active events
-    for event in active_events:
-        if event.round_injected == round_num:  # only store when first seen
-            memories.append({
-                "text": f"Round {round_num}: [{event.category.upper()}] {event.headline} "
-                        f"(severity {event.severity}/5, "
-                        f"{'RUMOR - may be false!' if not event.is_true else 'confirmed true'})",
-                "importance": score_importance("news", event.severity * 3),
-                "type": "news",
-            })
+    if filters.get("news_events", True):
+        for event in active_events:
+            if event.round_injected == round_num:
+                memories.append({
+                    "text": f"Round {round_num}: [{event.category.upper()}] {event.headline} "
+                            f"(severity {event.severity}/5, "
+                            f"{'RUMOR - may be false!' if not event.is_true else 'confirmed true'})",
+                    "importance": score_importance("news", event.severity * 3),
+                    "type": "news",
+                })
 
-    # Own trade
-    if trade.action in ("BUY", "SELL"):
+    # Own trades
+    if filters.get("own_trades", True) and trade.action in ("BUY", "SELL"):
         memories.append({
             "text": f"Round {round_num}: I {trade.action.lower()}ed {trade.amount} {trade.ticker} "
                     f"at ${trade.price:.2f}. Reasoning: {trade.reasoning}",
             "importance": score_importance("trade"),
             "type": "trade",
         })
-    elif trade.action == "CHAT" and trade.message:
+
+    # Chat messages
+    if filters.get("chat_messages", False) and trade.action == "CHAT" and trade.message:
         memories.append({
             "text": f"Round {round_num}: I said: '{trade.message}'",
             "importance": score_importance("chat"),
             "type": "chat",
         })
 
+    # Portfolio snapshots (NEW — opt-in via Memory Architect)
+    if filters.get("portfolio_snapshots", False):
+        from server.market import calculate_portfolio_value
+        total_value = calculate_portfolio_value(agent.portfolio, prices)
+        holdings_summary = ", ".join(
+            f"{t} {s}" for t, s in agent.portfolio.holdings.items()
+        ) or "no holdings"
+        memories.append({
+            "text": f"Round {round_num}: Portfolio ${total_value:.2f}. "
+                    f"Cash: ${agent.portfolio.cash:.2f}. Holdings: {holdings_summary}",
+            "importance": 3,
+            "type": "portfolio_snapshot",
+        })
+
+    # Failed trades / HOLD reasoning (NEW — opt-in via Memory Architect)
+    if filters.get("failed_trades", False) and trade.action == "HOLD":
+        if "error" not in trade.reasoning.lower() and "parse" not in trade.reasoning.lower():
+            memories.append({
+                "text": f"Round {round_num}: Chose to HOLD. Reasoning: {trade.reasoning}",
+                "importance": 3,
+                "type": "hold_decision",
+            })
+
     return memories
+
+
+async def transform_memory_focus(
+    memories: list[dict],
+    focus: str,
+) -> list[dict]:
+    """
+    Transform raw memories based on Memory Architect focus setting.
+
+    - episodic: raw events (default, no transformation)
+    - semantic: extract general patterns/rules from events
+    - procedural: extract if-then trading rules from events
+
+    Uses Gemini Flash (fast + cheap) for the transformation call.
+    """
+    if focus == "episodic" or not memories:
+        return memories
+
+    transformed = []
+    for mem in memories:
+        try:
+            if focus == "semantic":
+                prompt = (
+                    f"Based on this market event: '{mem['text']}'\n"
+                    f"Extract a general market pattern or rule in ONE sentence. "
+                    f"Focus on the underlying principle, not the specific event."
+                )
+            else:  # procedural
+                prompt = (
+                    f"Based on this market event: '{mem['text']}'\n"
+                    f"Extract a trading rule in ONE sentence starting with 'When... then...'. "
+                    f"Make it actionable."
+                )
+
+            result = await generate(prompt=prompt, model=FLASH_MODEL)
+            transformed.append({
+                "text": f"[{focus.upper()}] {result.strip()}",
+                "importance": mem["importance"],
+                "type": mem["type"],
+            })
+        except Exception:
+            # Fallback to raw episodic memory if transformation fails
+            transformed.append(mem)
+
+    return transformed
 
 
 # ══════════════════════════════════════════════════════════════
 # STEP 6: MEMORY COMPRESSION — Session 5
 # (Handled by AgentMemory.compress() in memory.py)
-# When memory count exceeds the threshold, old memories are
-# summarized into compressed summaries by Gemini. This keeps
+# When memory count exceeds agent.compression_trigger, old memories
+# are summarized into compressed summaries by Gemini. This keeps
 # the agent's context window manageable while preserving
 # the key lessons from early rounds.
 # ══════════════════════════════════════════════════════════════
 
 # Compression is called in the main brain loop above:
-#   if memory.count() > 50:
+#   if memory.count() > agent.compression_trigger:
 #       await memory.compress(round_num, gemini_model)
 #
 # See server/memory.py for the compression implementation.
@@ -635,6 +781,7 @@ async def run_all_agent_brains(
     knowledge_base: KnowledgeBase,
     agent_memories: dict[str, AgentMemory],
     gemini_model: str = LLM_MODEL,
+    rankings: list[dict] | None = None,
 ) -> dict[str, Trade]:
     """
     Run all agent brains for a single round, batched to respect rate limits.
@@ -660,7 +807,6 @@ async def run_all_agent_brains(
         for agent in batch:
             memory = agent_memories.get(agent.name)
             if memory is None:
-                # Agent joined mid-game without memory init
                 results[agent.name] = Trade(
                     agent_name=agent.name,
                     action="HOLD",
@@ -680,6 +826,7 @@ async def run_all_agent_brains(
                     knowledge_base=knowledge_base,
                     memory=memory,
                     gemini_model=gemini_model,
+                    rankings=rankings,
                 )
             )
 
@@ -689,7 +836,7 @@ async def run_all_agent_brains(
             task_idx = 0
             for agent in batch:
                 if agent.name in results:
-                    continue  # already handled (no memory)
+                    continue
                 result = batch_results[task_idx]
                 task_idx += 1
 

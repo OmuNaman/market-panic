@@ -88,6 +88,17 @@ class GameOrchestrator:
             risk_level=request.risk_level,
             favorite_sectors=request.favorite_sectors,
             portfolio=Portfolio(cash=self.config.starting_cash),
+            # Token War Room
+            rag_doc_count=request.rag_doc_count,
+            memory_recall_count=request.memory_recall_count,
+            memory_importance_threshold=request.memory_importance_threshold,
+            chat_history_count=request.chat_history_count,
+            market_data_config=request.market_data_config,
+            # Memory Architect
+            memory_focus=request.memory_focus,
+            forgetting_speed=request.forgetting_speed,
+            compression_trigger=request.compression_trigger,
+            memory_filters=request.memory_filters,
         )
 
         # Create per-agent memory collection
@@ -147,6 +158,17 @@ class GameOrchestrator:
             ],
             "response_times": agent.response_times,
             "status": agent.status,
+            # Token War Room config
+            "rag_doc_count": agent.rag_doc_count,
+            "memory_recall_count": agent.memory_recall_count,
+            "memory_importance_threshold": agent.memory_importance_threshold,
+            "chat_history_count": agent.chat_history_count,
+            "market_data_config": agent.market_data_config,
+            # Memory Architect config
+            "memory_focus": agent.memory_focus,
+            "forgetting_speed": agent.forgetting_speed,
+            "compression_trigger": agent.compression_trigger,
+            "memory_filters": agent.memory_filters,
         }
 
     # ── Game Control ──────────────────────────────────────────
@@ -344,6 +366,9 @@ class GameOrchestrator:
                 })
 
         # 2. Run ALL agent brains (the big one)
+        # Pre-compute rankings so agents with agent_rankings=True can see the leaderboard
+        pre_rankings = get_rankings(agents_list, new_prices) if agents_list else []
+
         if agents_list:
             decisions = await run_all_agent_brains(
                 agents=agents_list,
@@ -354,6 +379,7 @@ class GameOrchestrator:
                 round_num=round_num,
                 knowledge_base=self.knowledge_base,
                 agent_memories=self.agent_memories,
+                rankings=pre_rankings,
             )
 
             # 3. Execute trades
@@ -495,7 +521,12 @@ class GameOrchestrator:
         """Get current market state for REST API and WebSocket reconnect."""
         agents_list = list(self.agents.values())
         rankings = get_rankings(agents_list, self.market.prices) if agents_list else []
-        active_events = self.events.get_active(self.current_round)
+        # Read-only: filter active events without mutating self.events.active_events
+        active_events = [
+            e for e in self.events.active_events
+            if e.round_injected <= self.current_round
+            and (self.current_round - e.round_injected) < e.duration_rounds
+        ]
 
         return {
             "status": self.status.value,

@@ -17,6 +17,7 @@ load_dotenv()
 
 # Model constants
 LLM_MODEL = "gemini-2.5-pro"
+FLASH_MODEL = "gemini-2.5-flash"
 EMBEDDING_MODEL = "gemini-embedding-001"
 
 # Shared client instance

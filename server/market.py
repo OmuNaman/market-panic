@@ -92,11 +92,15 @@ class MarketEngine:
             elif trade.action == "SELL" and trade.ticker:
                 sell_vol[trade.ticker] += trade.amount
 
+        # Scale pressure with number of participating agents (diminishing returns)
+        active_trades = len([t for t in trades if t.action in ("BUY", "SELL") and t.amount > 0])
+        agent_scale = min(active_trades / 10, 3.0)  # caps at 3x for 30+ agents
+
         for ticker in self.prices:
             total = buy_vol[ticker] + sell_vol[ticker]
             if total > 0:
                 net_pressure = (buy_vol[ticker] - sell_vol[ticker]) / total
-                self.prices[ticker] *= 1.0 + net_pressure * 0.02
+                self.prices[ticker] *= 1.0 + net_pressure * 0.02 * max(agent_scale, 1.0)
                 self.prices[ticker] = max(1.0, round(self.prices[ticker], 2))
                 # Update last history entry with pressure-adjusted price
                 self.price_history[ticker][-1] = self.prices[ticker]

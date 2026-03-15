@@ -169,6 +169,26 @@ class AgentState(BaseModel):
     decisions: list[Trade] = Field(default_factory=list)
     response_times: list[float] = Field(default_factory=list)
 
+    # ── Token War Room ───────────────────────────────────────
+    rag_doc_count: int = Field(default=5, ge=1, le=10)
+    memory_recall_count: int = Field(default=10, ge=3, le=20)
+    memory_importance_threshold: int = Field(default=3, ge=1, le=10)
+    chat_history_count: int = Field(default=5, ge=0, le=10)
+    market_data_config: dict = Field(default_factory=lambda: {
+        "price_changes": True, "full_price_history": False,
+        "portfolio_state": True, "active_events": True, "agent_rankings": False,
+    })
+
+    # ── Memory Architect ─────────────────────────────────────
+    memory_focus: str = Field(default="episodic")
+    forgetting_speed: int = Field(default=3, ge=1, le=5)
+    compression_trigger: int = Field(default=50, ge=10, le=100)
+    memory_filters: dict = Field(default_factory=lambda: {
+        "price_moves": True, "price_threshold": 3.0,
+        "news_events": True, "own_trades": True,
+        "chat_messages": False, "portfolio_snapshots": False, "failed_trades": False,
+    })
+
 
 # ── Game Config ──────────────────────────────────────────────
 
@@ -187,3 +207,23 @@ class AgentCreateRequest(BaseModel):
     strategy: str = Field(min_length=1)
     risk_level: int = Field(ge=1, le=5, default=3)
     favorite_sectors: list[str] = Field(default_factory=list)
+
+    # Token War Room (optional — defaults match current hardcoded behavior)
+    rag_doc_count: int = Field(default=5, ge=1, le=10)
+    memory_recall_count: int = Field(default=10, ge=3, le=20)
+    memory_importance_threshold: int = Field(default=3, ge=1, le=10)
+    chat_history_count: int = Field(default=5, ge=0, le=10)
+    market_data_config: dict = Field(default_factory=lambda: {
+        "price_changes": True, "full_price_history": False,
+        "portfolio_state": True, "active_events": True, "agent_rankings": False,
+    })
+
+    # Memory Architect (optional — defaults match current behavior)
+    memory_focus: str = Field(default="episodic")
+    forgetting_speed: int = Field(default=3, ge=1, le=5)
+    compression_trigger: int = Field(default=50, ge=10, le=100)
+    memory_filters: dict = Field(default_factory=lambda: {
+        "price_moves": True, "price_threshold": 3.0,
+        "news_events": True, "own_trades": True,
+        "chat_messages": False, "portfolio_snapshots": False, "failed_trades": False,
+    })
