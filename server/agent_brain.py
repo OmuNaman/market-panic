@@ -666,9 +666,12 @@ def build_round_memories(
 
     # Own trades
     if filters.get("own_trades", True) and trade.action in ("BUY", "SELL"):
+        action_past = "bought" if trade.action == "BUY" else "sold"
+        # Use prices dict since trade.price isn't set until execute_trade runs later
+        exec_price = prices.get(trade.ticker, 0.0) if trade.ticker else 0.0
         memories.append({
-            "text": f"Round {round_num}: I {trade.action.lower()}ed {trade.amount} {trade.ticker} "
-                    f"at ${trade.price:.2f}. Reasoning: {trade.reasoning}",
+            "text": f"Round {round_num}: I {action_past} {trade.amount} {trade.ticker} "
+                    f"at ${exec_price:.2f}. Reasoning: {trade.reasoning}",
             "importance": score_importance("trade"),
             "type": "trade",
         })
