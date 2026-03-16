@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const SECTORS = [
-  { ticker: 'NOVA', name: 'AI/Tech', emoji: '🤖' },
-  { ticker: 'GRNE', name: 'Energy', emoji: '⚡' },
-  { ticker: 'MEDI', name: 'Pharma', emoji: '💊' },
-  { ticker: 'FOOD', name: 'Agri', emoji: '🌾' },
-  { ticker: 'LUXE', name: 'Luxury', emoji: '💎' },
-  { ticker: 'IRON', name: 'Defense', emoji: '🛡️' },
+  { ticker: 'NOVA', name: 'AI/Tech' },
+  { ticker: 'GRNE', name: 'Energy' },
+  { ticker: 'MEDI', name: 'Pharma' },
+  { ticker: 'FOOD', name: 'Agri' },
+  { ticker: 'LUXE', name: 'Luxury' },
+  { ticker: 'IRON', name: 'Defense' },
 ]
 
 const RISK_LABELS = ['', 'Conservative', 'Cautious', 'Balanced', 'Aggressive', 'Reckless']
-const FORGET_LABELS = ['', '🐘 Elephant', '📚 Studious', '⚖️ Balanced', '💨 Breezy', '🐠 Goldfish']
+const FORGET_LABELS = ['', 'Elephant', 'Studious', 'Balanced', 'Breezy', 'Goldfish']
 
 export default function AgentForm() {
   const navigate = useNavigate()
@@ -141,7 +141,7 @@ export default function AgentForm() {
         <div className="join-card">
           <h1 className="join-title">MARKET PANIC</h1>
           <div className="join-success">
-            <div className="success-icon">✓</div>
+            <div className="success-icon">OK</div>
             <h2>Agent Deployed!</h2>
             <p className="text-secondary"><span className="text-cyan">{agentName}</span> is ready to trade.</p>
             <button className="btn btn-primary" style={{ marginTop: '1.5rem', width: '100%' }} onClick={() => navigate('/dashboard')}>GO TO DASHBOARD →</button>
@@ -194,7 +194,6 @@ export default function AgentForm() {
             <div className="sector-grid">
               {SECTORS.map(s => (
                 <button key={s.ticker} type="button" className={`sector-pill ${sectors.includes(s.ticker) ? 'selected' : ''}`} onClick={() => toggleSector(s.ticker)}>
-                  <span className="sector-emoji">{s.emoji}</span>
                   <span className="sector-ticker">{s.ticker}</span>
                   <span className="sector-name">{s.name}</span>
                 </button>
@@ -205,7 +204,7 @@ export default function AgentForm() {
           {/* ── TOKEN WAR ROOM ── */}
           <div className="adv-section">
             <button type="button" className="adv-toggle" onClick={() => setShowWarRoom(!showWarRoom)}>
-              <span>⚡ Token War Room</span>
+              <span>TOKEN WAR ROOM</span>
               <span className="adv-arrow">{showWarRoom ? '▾' : '▸'}</span>
             </button>
             {showWarRoom && (
@@ -255,7 +254,7 @@ export default function AgentForm() {
           {/* ── MEMORY ARCHITECT ── */}
           <div className="adv-section">
             <button type="button" className="adv-toggle" onClick={() => setShowMemArch(!showMemArch)}>
-              <span>🧠 Memory Architect</span>
+              <span>MEMORY ARCHITECT</span>
               <span className="adv-arrow">{showMemArch ? '▾' : '▸'}</span>
             </button>
             {showMemArch && (
@@ -264,9 +263,9 @@ export default function AgentForm() {
                   <label>Memory Focus</label>
                   <div className="focus-options">
                     {[
-                      { val: 'episodic', icon: '🎯', name: 'Episodic', desc: 'Remember specific events as they happened' },
-                      { val: 'semantic', icon: '🧠', name: 'Semantic', desc: 'Extract general market patterns (+cost)' },
-                      { val: 'procedural', icon: '⚡', name: 'Procedural', desc: 'Create if-then trading rules (+cost)' },
+                      { val: 'episodic', icon: 'E', name: 'Episodic', desc: 'Remember specific events as they happened' },
+                      { val: 'semantic', icon: 'S', name: 'Semantic', desc: 'Extract general market patterns (+cost)' },
+                      { val: 'procedural', icon: 'P', name: 'Procedural', desc: 'Create if-then trading rules (+cost)' },
                     ].map(f => (
                       <button key={f.val} type="button" className={`focus-btn ${memoryFocus === f.val ? 'selected' : ''}`} onClick={() => setMemoryFocus(f.val)}>
                         <span className="focus-icon">{f.icon}</span>
@@ -308,7 +307,7 @@ export default function AgentForm() {
           {error && <div className="form-error">{error}</div>}
 
           <button type="submit" className="btn btn-primary deploy-btn" disabled={loading}>
-            {loading ? 'DEPLOYING...' : '🚀 DEPLOY AGENT'}
+            {loading ? 'DEPLOYING...' : 'DEPLOY AGENT'}
           </button>
         </form>
 
@@ -353,7 +352,6 @@ export default function AgentForm() {
         .sector-pill { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.75rem 0.5rem; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 10px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s var(--ease-snappy); }
         .sector-pill:hover { border-color: var(--accent-cyan); }
         .sector-pill.selected { border-color: var(--accent-cyan); box-shadow: var(--glow-cyan); color: var(--accent-cyan); background: rgba(0, 240, 255, 0.05); }
-        .sector-emoji { font-size: 1.25rem; }
         .sector-ticker { font-family: var(--font-mono); font-weight: 700; font-size: 0.8rem; }
         .sector-name { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .form-error { color: var(--accent-pink); font-size: 0.85rem; text-align: center; padding: 0.5rem; background: rgba(255, 45, 122, 0.1); border-radius: 8px; }

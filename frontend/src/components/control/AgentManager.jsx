@@ -45,7 +45,7 @@ export default function AgentManager({ agents, rankings, sendMessage }) {
               onClick={() => handleInspect(agent.name)}
               title="Inspect"
             >
-              🔍
+              [i]
             </button>
             {confirmRemove === agent.name ? (
               <>
@@ -53,13 +53,13 @@ export default function AgentManager({ agents, rankings, sendMessage }) {
                   className="agent-action-btn text-pink"
                   onClick={() => handleRemove(agent.name)}
                 >
-                  ✓
+                  Y
                 </button>
                 <button
                   className="agent-action-btn"
                   onClick={() => setConfirmRemove(null)}
                 >
-                  ✕
+                  N
                 </button>
               </>
             ) : (
@@ -68,7 +68,7 @@ export default function AgentManager({ agents, rankings, sendMessage }) {
                 onClick={() => setConfirmRemove(agent.name)}
                 title="Remove"
               >
-                🗑
+                X
               </button>
             )}
           </div>

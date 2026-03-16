@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 
 const SCENARIO_DESCRIPTIONS = {
-  flash_crash: { name: 'Flash Crash', desc: 'Algorithmic glitch → market-wide panic → recovery', icon: '💥' },
-  earnings_season: { name: 'Earnings Season', desc: 'Mixed results — some beat, some miss', icon: '📊' },
-  the_big_lie: { name: 'The Big Lie', desc: 'Fake merger rumor → hype → denial crash', icon: '🤥' },
-  sector_rotation: { name: 'Sector Rotation', desc: 'Money flows from tech to defense & energy', icon: '🔄' },
-  bull_run: { name: 'Bull Run', desc: 'Rate cut → consumer confidence → broad rally', icon: '🐂' },
-  insider_tip: { name: 'Insider Tip', desc: 'Unusual activity → pharma breakthrough', icon: '🔮' },
+  flash_crash: { name: 'Flash Crash', desc: 'Algorithmic glitch → market-wide panic → recovery', icon: '//' },
+  earnings_season: { name: 'Earnings Season', desc: 'Mixed results — some beat, some miss', icon: '$' },
+  the_big_lie: { name: 'The Big Lie', desc: 'Fake merger rumor → hype → denial crash', icon: '!!' },
+  sector_rotation: { name: 'Sector Rotation', desc: 'Money flows from tech to defense & energy', icon: '<>' },
+  bull_run: { name: 'Bull Run', desc: 'Rate cut → consumer confidence → broad rally', icon: '^' },
+  insider_tip: { name: 'Insider Tip', desc: 'Unusual activity → pharma breakthrough', icon: '??' },
 }
 
 export default function ScenarioLoader({ sendMessage }) {
