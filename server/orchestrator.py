@@ -132,10 +132,15 @@ class GameOrchestrator:
         """Get full inspection data for the AgentInspector panel."""
         agent = self.agents.get(name)
         if not agent:
+            logger.warning(f"inspect_agent: agent '{name}' not found. Available: {list(self.agents.keys())}")
             return None
 
         memory = self.agent_memories.get(name)
-        memories = await memory.aget_all() if memory else []
+        try:
+            memories = await memory.aget_all() if memory else []
+        except Exception as e:
+            logger.warning(f"inspect_agent: memory retrieval failed for '{name}': {e}")
+            memories = []
 
         return {
             "name": agent.name,

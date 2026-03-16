@@ -10,6 +10,7 @@ export default function AgentManager({ agents, rankings, sendMessage }) {
   }
 
   const handleInspect = (name) => {
+    console.log('[AgentManager] Inspecting agent:', name)
     sendMessage({ type: 'inspect_agent', name })
   }
 

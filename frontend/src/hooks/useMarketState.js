@@ -175,6 +175,12 @@ export function useMarketState() {
   const [state, dispatch] = useReducer(reducer, initialState)
 
   const handleMessage = useCallback((data) => {
+    if (data.type === 'agent_inspection') {
+      console.log('[MarketState] Received agent_inspection:', data.name)
+    }
+    if (data.type === 'error') {
+      console.error('[MarketState] Server error:', data.message)
+    }
     dispatch(data)
   }, [])
 
